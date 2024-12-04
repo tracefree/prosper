@@ -1,5 +1,5 @@
 # Prosper
-C++ rendering engine using [Vulkan](https://www.vulkan.org/), the [Slang](https://shader-slang.com/) shader language, and [SDL3](https://wiki.libsdl.org/SDL3/FrontPage).
+C++ rendering engine using [Vulkan](https://www.vulkan.org/), the [Slang](https://shader-slang.com/) shader language, and [SDL3](https://wiki.libsdl.org/SDL3/FrontPage). (Work in progress.)
 
 ![prosper2](https://github.com/user-attachments/assets/cad163c0-8217-40f1-89a0-ab018daf7205)
 
