@@ -12,6 +12,7 @@ Based on [vkguide.dev](https://vkguide.dev), with the main differences being tha
 You'll need to have installed the Vulkan SDK and SDL3 libraries on your system. To build with CMake run these commands in the terminal inside the project's directoy:
 
 ```
+mkdir build
 cd build
 cmake ..
 cmake --build .
