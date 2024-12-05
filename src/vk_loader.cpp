@@ -10,7 +10,6 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 
-
 using namespace vk;
 
 Filter extract_filter(fastgltf::Filter filter) {
@@ -118,16 +117,20 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
 
     // Textures
 
+    uint32_t texture_index {0};
     for (fastgltf::Image& image : asset.images) {
         std::optional<AllocatedImage> new_image = load_image(p_renderer, asset, image);
 
         if (new_image.has_value()) {
             temp_textures.push_back(*new_image);
-            file.textures[image.name.c_str()] = *new_image;
+            std::string texture_id = std::to_string(texture_index);
+            file.textures[texture_id.c_str()] = *new_image;
         } else {
             temp_textures.push_back(p_renderer->image_error);
             print("Failed to load texture: %s", image.name.c_str());
         }
+
+        texture_index++;
     }
 
     file.material_data_buffer = p_renderer->create_buffer(
@@ -345,6 +348,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, std::filesystem::
     return new_image;
 }
 
+
 std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& p_asset, fastgltf::Image& p_image) {
     AllocatedImage new_image {};
     int width, height, number_channels;
@@ -375,7 +379,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                         .height = uint32_t(height),
                         .depth  = 1,
                     };
-                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Srgb, ImageUsageFlagBits::eSampled, false);
+                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, false);
                     stbi_image_free(data);
                 }
             },
@@ -394,7 +398,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                                     .height = uint32_t(height),
                                     .depth  = 1,
                                 };
-                                new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Srgb, ImageUsageFlagBits::eSampled, false);
+                                new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, false);
                                 stbi_image_free(data);
                             }
                         }

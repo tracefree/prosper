@@ -178,6 +178,7 @@ bool Renderer::create_draw_image() {
         .usage = VMA_MEMORY_USAGE_GPU_ONLY,
         .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
+    
     VkResult creation_result = vmaCreateImage(allocator, (VkImageCreateInfo*)&image_info, &image_alloc_info, (VkImage_T**) &draw_image.image, &draw_image.allocation, nullptr);
     if (creation_result != VK_SUCCESS) {
         return false;
@@ -641,6 +642,7 @@ AllocatedImage Renderer::create_image(void* p_data, Extent3D p_size, Format p_fo
     destroy_buffer(upload_buffer);
     return new_image;
 }
+
 
 void Renderer::destroy_image(const AllocatedImage& p_image) {
     device.destroyImageView(p_image.image_view, nullptr);
