@@ -6,6 +6,7 @@
 
 #include "shaders/gradient.h"
 #include "shaders/mesh.h"
+#include "shaders/skybox.h"
 
 #include <cmath>
 #include <vulkan/vk_enum_string_helper.h>
@@ -35,8 +36,6 @@ bool Renderer::create_vulkan_instance(uint32_t p_extension_count, const char* co
         .enabledExtensionCount = p_extension_count,
         .ppEnabledExtensionNames = p_extensions,
     };
-
-    
 
     Result result;
     std::tie(result, instance) = createInstance(create_info, nullptr);
@@ -78,14 +77,19 @@ bool Renderer::create_device() {
     }
     
     const float priority = 1.0f;
-    const char* enabled_extensions[1] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    std::vector<const char*> enabled_extensions = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        VK_EXT_SHADER_OBJECT_EXTENSION_NAME
+    };
     DeviceQueueCreateInfo queue_create_info {
         .queueFamilyIndex = graphics_queue_index,
         .queueCount = 1,
         .pQueuePriorities = &priority,
     };
     PhysicalDeviceFeatures features {};
+    PhysicalDeviceShaderObjectFeaturesEXT shader_object_extension { .shaderObject = True };
     PhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features {
+        .pNext = &shader_object_extension,
         .bufferDeviceAddress = True,
     };
     PhysicalDeviceVulkan13Features features13 {
@@ -97,12 +101,13 @@ bool Renderer::create_device() {
         .pNext = &features13,
         .features = features,
     };
+    
     DeviceCreateInfo create_info {
         .pNext = &features2,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queue_create_info,
-        .enabledExtensionCount = 1,
-        .ppEnabledExtensionNames = enabled_extensions,
+        .enabledExtensionCount = uint32_t(enabled_extensions.size()),
+        .ppEnabledExtensionNames = enabled_extensions.data(),
     };
     Result result;
     std::tie(result, device) = physical_device.createDevice(create_info);
@@ -269,21 +274,21 @@ bool Renderer::create_shader_module(const uint32_t bytes[], const int length, Sh
 
 
 bool Renderer::create_pipelines() {
-    create_background_pipeline();
+    create_background_shader();
     metal_roughness_material.build_pipelines(this);
     
     return true;
 }
 
 
-bool Renderer::create_background_pipeline() {
+bool Renderer::create_background_shader() {
     PushConstantRange push_constants {
-        .stageFlags = ShaderStageFlagBits::eCompute,
+        .stageFlags = ShaderStageFlagBits::eVertex,
         .offset = 0,
-        .size = sizeof(ComputePushConstants),
+        .size = sizeof(Mat4),
     };
 
-    PipelineLayoutCreateInfo compute_layout {
+    PipelineLayoutCreateInfo layout_info {
         .setLayoutCount = 1,
         .pSetLayouts    = &draw_image_descriptor_layout,
         .pushConstantRangeCount = 1,
@@ -291,51 +296,46 @@ bool Renderer::create_background_pipeline() {
     };
 
     Result result;
-    std::tie(result, gradient_pipeline_layout) = device.createPipelineLayout(compute_layout);
+    std::tie(result, skybox_layout) = device.createPipelineLayout(layout_info);
     if (result != Result::eSuccess) {
         print("Could not create pipeline layout!");
         return false;
     }
 
-    ShaderModule compute_draw_shader;
-    if (!create_shader_module(gradient_spv, gradient_spv_sizeInBytes, compute_draw_shader)) {
-        print("Could not create compute shader module!");
-        return false;
-    }
+    auto getInstanceProcAddress = (PFN_vkGetInstanceProcAddr) SDL_Vulkan_GetVkGetInstanceProcAddr();
+    dispatch_loader = DispatchLoaderDynamic(instance, getInstanceProcAddress, device);
 
-    PipelineShaderStageCreateInfo stage_info {
-        .stage  = ShaderStageFlagBits::eCompute,
-        .module = compute_draw_shader,
-        .pName  = "compute",
+    ShaderCreateInfoEXT vertex_shader_info {
+        .flags = ShaderCreateFlagBitsEXT::eLinkStage,
+        .stage = ShaderStageFlagBits::eVertex,
+        .nextStage = ShaderStageFlagBits::eFragment,
+        .codeType = ShaderCodeTypeEXT::eSpirv,
+        .codeSize = skybox_spv_sizeInBytes,
+        .pCode = skybox_spv,
+        .pName = "vertex",
+        .setLayoutCount = 1,
+        .pSetLayouts = &draw_image_descriptor_layout,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &push_constants,
     };
 
-    ComputePipelineCreateInfo compute_pipeline_info {
-        .stage  = stage_info,
-        .layout = gradient_pipeline_layout,
-    };
+    ShaderCreateInfoEXT fragment_shader_info = vertex_shader_info;
+    fragment_shader_info.stage = ShaderStageFlagBits::eFragment;
+    fragment_shader_info.nextStage = {};
+    fragment_shader_info.pName = "fragment";
 
-    std::tie(result, gradient_pipeline) = device.createComputePipeline(VK_NULL_HANDLE, compute_pipeline_info);
-    if (result != Result::eSuccess) {
-        print("Could not create compute pipeline!");
-        return false;
-    }
 
-    device.destroyShaderModule(compute_draw_shader);
+    std::vector<ShaderCreateInfoEXT> shader_infos = { vertex_shader_info, fragment_shader_info };
+    std::vector<ShaderEXT> skybox_shaders;
+    skybox_shaders = device.createShadersEXT(shader_infos, nullptr, dispatch_loader).value;
+    skybox_shader.vertex = skybox_shaders[0];
+    skybox_shader.fragment = skybox_shaders[1];
+    
     deletion_queue.push_function([&]() {
-        device.destroyPipelineLayout(gradient_pipeline_layout);
-        device.destroyPipeline(gradient_pipeline);
+        device.destroyShaderEXT(skybox_shader.vertex, nullptr, dispatch_loader);
+        device.destroyShaderEXT(skybox_shader.fragment, nullptr, dispatch_loader);
+        device.destroyPipelineLayout(skybox_layout);
     });
-
-    ComputeEffect gradient {
-        .name = "Gradient",
-        .pipeline = gradient_pipeline,
-        .layout = gradient_pipeline_layout,
-        .data = {
-            .data1 = Vec4(1.0f, 0.0f, 0.0f, 1.0f),
-            .data2 = Vec4(0.0f, 0.0f, 1.0f, 1.0f),
-        },
-    };
-    background_effects.push_back(gradient);
 
     return true;
 }
@@ -956,15 +956,74 @@ void Renderer::cleanup() {
 }
 
 
-void Renderer::draw_background(CommandBuffer p_cmd) {
-    ComputeEffect& effect = background_effects[current_background_effect];
+void Renderer::draw_skybox(CommandBuffer p_cmd) {
+    RenderingAttachmentInfo color_attachment {
+        .imageView   = draw_image.image_view,
+        .imageLayout = ImageLayout::eColorAttachmentOptimal,
+        .loadOp      = AttachmentLoadOp::eLoad,
+        .storeOp     = AttachmentStoreOp::eStore,
+    };
+    RenderingAttachmentInfo depth_attachment {
+        .imageView   = depth_image.image_view,
+        .imageLayout = ImageLayout::eDepthAttachmentOptimal,
+        .loadOp      = AttachmentLoadOp::eLoad,
+        .storeOp     = AttachmentStoreOp::eNone,
+    };
+    RenderingInfo render_info {
+        .renderArea = Rect2D { {0, 0}, {draw_image.image_extent.width, draw_image.image_extent.height} },
+        .layerCount = 1,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &color_attachment,
+        .pDepthAttachment = &depth_attachment,
+    };
 
-    p_cmd.bindPipeline(PipelineBindPoint::eCompute, effect.pipeline);
-    p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, gradient_pipeline_layout, 0, 1, &draw_image_descriptors, 0, nullptr);
-    
-    p_cmd.pushConstants(gradient_pipeline_layout, ShaderStageFlagBits::eCompute, 0, sizeof(ComputePushConstants), &effect.data);
-    
-    p_cmd.dispatch(std::ceil(draw_extent.width / 16.0f), std::ceil(draw_extent.height / 16.0f), 1);
+    p_cmd.beginRendering(render_info);
+
+    Mat4 sky_tranform = scene_data.projection * Mat4(Mat3(scene_data.view));
+    p_cmd.pushConstants(skybox_layout, ShaderStageFlagBits::eVertex, 0, sizeof(Mat4), &sky_tranform);
+
+    Viewport viewport {
+        .x = 0.0f, .y = 0.0f,
+        .width = (float) viewport_size.width, .height = (float) viewport_size.height,
+        .minDepth = 0.0f, .maxDepth = 1.0,
+    };
+    p_cmd.setViewportWithCount(1, &viewport);
+
+    Rect2D scissor {
+        .offset = {.x = 0, .y = 0},
+        .extent = viewport_size,
+    };
+    p_cmd.setScissorWithCount(1, &scissor);
+
+    p_cmd.bindShadersEXT(ShaderStageFlagBits::eVertex, skybox_shader.vertex, dispatch_loader);
+    p_cmd.bindShadersEXT(ShaderStageFlagBits::eFragment, skybox_shader.fragment, dispatch_loader);
+    p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, skybox_layout, 0, 1, &draw_image_descriptors, 0, nullptr);
+
+    p_cmd.setRasterizerDiscardEnableEXT(False, dispatch_loader);
+    ColorBlendEquationEXT blend_equation {};
+    p_cmd.setColorBlendEquationEXT(0, blend_equation, dispatch_loader);
+    p_cmd.setRasterizationSamplesEXT(SampleCountFlagBits::e1, dispatch_loader);
+    p_cmd.setCullModeEXT(CullModeFlagBits::eNone, dispatch_loader);
+    p_cmd.setDepthWriteEnableEXT(False, dispatch_loader);
+    p_cmd.setVertexInputEXT({}, {}, dispatch_loader);
+    p_cmd.setPrimitiveTopology(PrimitiveTopology::eTriangleList);
+    p_cmd.setPrimitiveRestartEnable(False);
+    p_cmd.setSampleMaskEXT(SampleCountFlagBits::e1, 1, dispatch_loader);
+    p_cmd.setAlphaToCoverageEnableEXT(False, dispatch_loader);
+    p_cmd.setPolygonModeEXT(PolygonMode::eFill, dispatch_loader);
+    p_cmd.setFrontFace(FrontFace::eCounterClockwise);
+    p_cmd.setDepthTestEnable(True);
+    p_cmd.setDepthCompareOp(CompareOp::eGreaterOrEqual);
+    p_cmd.setDepthBoundsTestEnableEXT(False, dispatch_loader);
+    p_cmd.setStencilTestEnable(False);
+    p_cmd.setDepthBiasEnableEXT(False, dispatch_loader);
+
+    p_cmd.setLogicOpEnableEXT(False, dispatch_loader);
+    p_cmd.setColorBlendEnableEXT(0, {False}, dispatch_loader);
+    p_cmd.setColorWriteMaskEXT(0, { ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA }, dispatch_loader);
+
+    p_cmd.draw(36, 1, 0, 0);
+    p_cmd.endRendering();
 }
 
 
@@ -1138,13 +1197,11 @@ void Renderer::draw() {
     };
     cmd.begin(begin_info);
 
-    // Transition to General so compute shader can write into it
-    transition_image(cmd, draw_image.image, ImageLayout::eUndefined, ImageLayout::eGeneral);
-    draw_background(cmd);
-
-    transition_image(cmd, draw_image.image, ImageLayout::eGeneral, ImageLayout::eColorAttachmentOptimal);
+    transition_image(cmd, draw_image.image, ImageLayout::eUndefined, ImageLayout::eColorAttachmentOptimal);
     transition_image(cmd, depth_image.image, ImageLayout::eUndefined, ImageLayout::eDepthAttachmentOptimal);
+    
     draw_geometry(cmd);
+    draw_skybox(cmd);
 
     transition_image(cmd, draw_image.image, ImageLayout::eColorAttachmentOptimal, ImageLayout::eTransferSrcOptimal);
     transition_image(cmd, swapchain_images[swapchain_image_index], ImageLayout::eUndefined, ImageLayout::eTransferDstOptimal);

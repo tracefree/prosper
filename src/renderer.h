@@ -114,10 +114,7 @@ public:
     DescriptorSetLayout draw_image_descriptor_layout;
 
     Pipeline gradient_pipeline;
-    PipelineLayout gradient_pipeline_layout;
-
-    Pipeline mesh_pipeline;
-    PipelineLayout mesh_pipeline_layout;
+    PipelineLayout skybox_layout;
 
     Fence immediate_fence;
     CommandBuffer immediate_command_buffer;
@@ -134,6 +131,9 @@ public:
     Sampler sampler_default_nearest;
 
     DescriptorSetLayout single_image_descriptor_layout;
+
+    DispatchLoaderDynamic dispatch_loader;
+    ShaderObject skybox_shader;
     
     bool create_vulkan_instance(uint32_t p_extension_count, const char* const* p_extensions);
     bool create_physical_device();
@@ -143,7 +143,7 @@ public:
     bool create_draw_image();
     bool create_image_views();
     bool create_pipelines();
-    bool create_background_pipeline();
+    bool create_background_shader();
     bool create_commands();
     bool create_sync_objects();
     bool create_descriptors();
@@ -159,7 +159,7 @@ public:
     void copy_image_to_image(CommandBuffer p_cmd, Image p_source, Image p_destination, Extent2D source_size, Extent2D destination_size);
     void immediate_submit(std::function<void(CommandBuffer p_cmd)>&& function);
 
-    void draw_background(CommandBuffer p_cmd);
+    void draw_skybox(CommandBuffer p_cmd);
     void draw_geometry(CommandBuffer p_cmd);
     void draw_imgui(CommandBuffer p_cmd, ImageView p_target_image_view);
 

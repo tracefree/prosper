@@ -73,7 +73,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     gRenderer.initialize(extensions.size(), extensions.data(), gWindow, 1920, 1080);
 
-    gRenderer.loaded_scenes["Krapfen"] = *load_gltf_scene(&gRenderer, "../../assets/models/Sponza/glTF/Sponza.gltf");
+    gRenderer.loaded_scenes["scene"] = *load_gltf_scene(&gRenderer, "../../assets/models/Sponza/glTF/Sponza.gltf");
 
     SDL_ShowWindow(gWindow);
     SDL_SetWindowRelativeMouseMode(gWindow, true);
@@ -101,8 +101,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         ImGui::SliderInt("Show normals", &gRenderer.show_normals, 0, 1);
 
         ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs;
-        ImGui::ColorPicker4("Top color", (float*)& selected.data.data1, flags);
-        ImGui::ColorPicker4("Bottom color", (float*)& selected.data.data2, flags);
+    //    ImGui::ColorPicker4("Top color", (float*)& selected.data.data1, flags);
+    //    ImGui::ColorPicker4("Bottom color", (float*)& selected.data.data2, flags);
     }
     ImGui::End();
 

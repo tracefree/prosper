@@ -125,3 +125,8 @@ struct PerformanceStats {
     float scene_update_time;
     float mesh_draw_time;
 };
+
+struct ShaderObject {
+    ShaderEXT vertex;
+    ShaderEXT fragment;
+};
