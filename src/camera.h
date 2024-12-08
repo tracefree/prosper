@@ -6,7 +6,8 @@
 class Camera {
 public:
     Vec3 position {Vec3(0.0f, 0.0f, 0.4f)};
-    Vec3 velocity {Vec3(0.0f)};
+    Vec3 horizontal_velocity {Vec3(0.0f)};
+    float vertical_velocity {0.0f};
 
     float pitch {0.0f};
     float yaw {0.0f};
