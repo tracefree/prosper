@@ -3,9 +3,27 @@ C++ rendering engine using [Vulkan](https://www.vulkan.org/), the [Slang](https:
 
 ![prosper3](https://github.com/user-attachments/assets/f34fb9a6-0b2c-4d97-a27f-cafe68ebcb4a)
 
-This project originally started as a minimal "Hello World" example to render a single triangle which I [moved to a new repository](https://github.com/tracefree/vulkan-triangle-sdl-slang) for anyone interested in a less complex setup using Slang and Vulkan. I will continue to develop the engine in this repository.
+This project originally started as a minimal "Hello World" example to render a single triangle which I [moved to a new repository](https://github.com/tracefree/vulkan-triangle-sdl-slang) for anyone interested in a less complex setup using Slang and Vulkan. I will continue to develop the engine in this repository. It is not supposed to be a general purpose rendering engine - the primary goals of Prosper are to serve as a testing ground to me for experimenting with graphics programming techniques, and to be used for a video game I will be making. Therefore I will only implement features I am interested in and that are directly useful to the visual style I'm going for.
 
-Based on [vkguide.dev](https://vkguide.dev), with the main differences being that I use Slang instead of GLSL and the VulkanHpp headers instead of the C API. Also very helpful resources were the [Vulkan Lecture Series](https://www.youtube.com/playlist?list=PLmIqTlJ6KsE1Jx5HV4sd2jOe3V1KMHHgn) by TU Wien and [vulkan-tutorial.com](https://vulkan-tutorial.com/). The project uses [dynamic rendering](https://docs.vulkan.org/samples/latest/samples/extensions/dynamic_rendering/README.html) and [buffer device addresses](https://docs.vulkan.org/samples/latest/samples/extensions/buffer_device_address/README.html) for vertex data. Future plans include switching to [shader objects](https://docs.vulkan.org/samples/latest/samples/extensions/shader_object/README.html) instead of pipelines, GPU driven rendering, skeletal animation, and any shiny new rendering technique I find fun and want to try out.
+Based on [vkguide.dev](https://vkguide.dev), with the main differences being that I use Slang instead of GLSL and the VulkanHpp headers instead of the C API. Also very helpful resources were the [Vulkan Lecture Series](https://www.youtube.com/playlist?list=PLmIqTlJ6KsE1Jx5HV4sd2jOe3V1KMHHgn) by TU Wien and [vulkan-tutorial.com](https://vulkan-tutorial.com/).
+
+## Current and planned features (non-exhaustive)
+- [x] [Buffer device addresses](https://docs.vulkan.org/samples/latest/samples/extensions/buffer_device_address/README.html)
+- [X] [Dynamic rendering](https://docs.vulkan.org/samples/latest/samples/extensions/dynamic_rendering/README.html) instead of render passes
+- [x] [Shader objects](https://docs.vulkan.org/samples/latest/samples/extensions/shader_object/README.html) instead of pipelines
+- [ ] Implement `VK_LAYER_KHRONOS_shader_object` to remove reliance on `VK_EXT_shader_object`
+- [ ] GPU driven rendering
+- [ ] Deffered rendering
+- [ ] Skeletal animation
+- [ ] Integrating a physics engine
+- [ ] HDR with tonemapping
+- [ ] Bloom
+- [ ] MSAA
+- [ ] SSAO
+- [ ] Either PBR or a shading model useful for stylized rendering
+- [ ] Dynamic lighting
+- [ ] Global illumination
+- [ ] Anything else I come up with along the way
 
 ## Installation instructions
 ### Linux (and probably Mac and BSD)
