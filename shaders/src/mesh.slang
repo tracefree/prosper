@@ -60,9 +60,13 @@ float4 fragment(
     if (push_constants.flags > 0) {
         return float4(normal.rgb, 1.0);
     } else {
+        let albedo_texture_sample = fragment_params.albedo_texture.Sample(uv);
+        if (albedo_texture_sample.a < 0.5) {
+            discard;
+        }
         let light_value = max(dot(normal.xyz, scene_data.sunlight_direction.xyz), 0.0);
-        let albedo = color.rgb * fragment_params.albedo_texture.Sample(uv).rgb;
+        let albedo = color.rgb * albedo_texture_sample.rgb;
         let ambient = albedo * scene_data.ambient_color.rgb;
-        return float4(albedo * light_value * scene_data.sunlight_color.w + ambient, 1.0);
+        return float4(albedo * light_value * scene_data.sunlight_color.w + ambient, albedo_texture_sample.a);
     }
 }
