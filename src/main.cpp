@@ -73,7 +73,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     gRenderer.initialize(extensions.size(), extensions.data(), gWindow, 1920, 1080);
 
-    gRenderer.loaded_scenes["scene"] = *load_gltf_scene(&gRenderer, "../../assets/models/Sponza/glTF/Sponza.gltf");
+    gRenderer.loaded_scenes["scene"] = *load_gltf_scene(&gRenderer, "../../assets/models/Sponza/glTF/Sponza.gltf"); //Sponza/glTF/Sponza.gltf
 
     SDL_ShowWindow(gWindow);
     SDL_SetWindowRelativeMouseMode(gWindow, true);

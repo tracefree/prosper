@@ -27,6 +27,19 @@ Filter extract_filter(fastgltf::Filter filter) {
     }
 }
 
+SamplerAddressMode extract_address_mode(fastgltf::Wrap wrap) {
+    switch (wrap) {
+        case fastgltf::Wrap::ClampToEdge:
+            return SamplerAddressMode::eClampToEdge;
+        case fastgltf::Wrap::MirroredRepeat:
+            return SamplerAddressMode::eMirroredRepeat;
+        case fastgltf::Wrap::Repeat:
+            return SamplerAddressMode::eRepeat;
+        deftault:
+            return SamplerAddressMode::eRepeat;
+    }
+}
+
 SamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
 {
     switch (filter) {
@@ -80,8 +93,6 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
         return {};
     }
 
-    
-
     std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
         { DescriptorType::eCombinedImageSampler, 3},
         { DescriptorType::eUniformBuffer, 3},
@@ -94,12 +105,11 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
         SamplerCreateInfo sampler_info {
             .magFilter = extract_filter(sampler.magFilter.value_or(fastgltf::Filter::Nearest)),
             .minFilter = extract_filter(sampler.minFilter.value_or(fastgltf::Filter::Nearest)),
-        //    .addressModeU = SamplerAddressMode::eClampToEdge,
-        //    .addressModeV = SamplerAddressMode::eClampToEdge,
-        //    .addressModeW = SamplerAddressMode::eClampToEdge,
+            .mipmapMode = extract_mipmap_mode(sampler.minFilter.value_or(fastgltf::Filter::Nearest)),
+            .addressModeU = extract_address_mode(sampler.wrapS),
+            .addressModeV = extract_address_mode(sampler.wrapT),
             .minLod = 0,
             .maxLod = LodClampNone,
-            
         };
 
         Result result;
@@ -266,9 +276,9 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
             // Color
             auto color_attribute = primitive.findAttribute("COLOR_0");
             if (color_attribute != primitive.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<Vec4>(asset, asset.accessors[(*color_attribute).accessorIndex],
-                    [&](Vec4 color, size_t index) {
-                        vertices[initial_vertex_index + index].color = color;
+                fastgltf::iterateAccessorWithIndex<Vec3>(asset, asset.accessors[(*color_attribute).accessorIndex],
+                    [&](Vec3 color, size_t index) {
+                        vertices[initial_vertex_index + index].color = Vec4(color, 1.0f);
                     }
                 );
             }
@@ -344,7 +354,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, std::filesystem::
 
     int w, h, nrChannels;
     unsigned char* data = stbi_load(p_file_path.c_str(), &w, &h, &nrChannels, 4);
-    new_image = p_renderer->create_image(data, Extent3D {uint32_t(w), uint32_t(h), 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, false);
+    new_image = p_renderer->create_image(data, Extent3D {uint32_t(w), uint32_t(h), 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, true);
     return new_image;
 }
 
@@ -367,7 +377,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                         .height = uint32_t(height),
                         .depth  = 1,
                     };
-                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, false);
+                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Srgb, ImageUsageFlagBits::eSampled, true);
                     stbi_image_free(data);
                 }
             },
@@ -379,7 +389,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                         .height = uint32_t(height),
                         .depth  = 1,
                     };
-                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, false);
+                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Srgb, ImageUsageFlagBits::eSampled, true);
                     stbi_image_free(data);
                 }
             },
@@ -398,7 +408,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                                     .height = uint32_t(height),
                                     .depth  = 1,
                                 };
-                                new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, false);
+                                new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Srgb, ImageUsageFlagBits::eSampled, true);
                                 stbi_image_free(data);
                             }
                         }

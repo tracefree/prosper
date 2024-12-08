@@ -193,6 +193,7 @@ public:
     GPUMeshBuffers upload_mesh(std::span<uint32_t> p_indices, std::span<Vertex> p_vertices);
     AllocatedImage create_image(Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool mipmapped = False);
     AllocatedImage create_image(void* p_data, Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool mipmapped = False);
+    void generate_mipmaps(CommandBuffer p_cmd, Image p_image, Extent2D p_size);
     void destroy_image(const AllocatedImage& p_image);
 
     void recreate_swapchain();

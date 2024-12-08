@@ -43,8 +43,8 @@ float4 fragment(
     float3 position_world,
 ) : SV_Target
 {
-    float4 bottom_color = float4(0.3, 0.2, 0.2, 1.0);
-    float4 top_color = float4(0.3, 0.3, 0.9, 1.0);
-    float theta = acos(-position_world.y / length(position_world));
+    let bottom_color = float4(0.3, 0.2, 0.2, 1.0);
+    let top_color = float4(0.3, 0.3, 0.9, 1.0);
+    let theta = acos(-position_world.y / length(position_world));
     return lerp(bottom_color, top_color, clamp(theta / 3.141, 0.0, 1.0));
 }

@@ -488,9 +488,7 @@ void Renderer::init_default_data() {
     SamplerCreateInfo sample_info {
         .magFilter = Filter::eNearest,
         .minFilter = Filter::eNearest,
-    //    .addressModeU = SamplerAddressMode::eClampToEdge,
-    //    .addressModeV = SamplerAddressMode::eClampToEdge,
-    //    .addressModeW = SamplerAddressMode::eClampToEdge,
+        .mipmapMode = SamplerMipmapMode::eNearest,
     };
     Result result;
     std::tie(result, sampler_default_nearest) = device.createSampler(sample_info);
@@ -615,11 +613,11 @@ AllocatedImage Renderer::create_image(Extent3D p_size, Format p_format, ImageUsa
     return new_image;
 }
 
-AllocatedImage Renderer::create_image(void* p_data, Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool mipmapped) {
+AllocatedImage Renderer::create_image(void* p_data, Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool p_mipmapped) {
     size_t data_size = p_size.depth * p_size.width * p_size.height * 4;
     AllocatedBuffer upload_buffer = create_buffer(data_size, BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_TO_GPU);
     memcpy(upload_buffer.info.pMappedData, p_data, data_size);
-    AllocatedImage new_image = create_image(p_size, p_format, p_usage | ImageUsageFlagBits::eTransferDst | ImageUsageFlagBits::eTransferSrc, mipmapped);
+    AllocatedImage new_image = create_image(p_size, p_format, p_usage | ImageUsageFlagBits::eTransferDst | ImageUsageFlagBits::eTransferSrc, p_mipmapped);
     
     immediate_submit([&, this](CommandBuffer cmd) {
         transition_image(cmd, new_image.image, ImageLayout::eUndefined, ImageLayout::eTransferDstOptimal);
@@ -635,14 +633,88 @@ AllocatedImage Renderer::create_image(void* p_data, Extent3D p_size, Format p_fo
             },
             .imageExtent = p_size,
         };
+
         cmd.copyBufferToImage(upload_buffer.buffer, new_image.image, ImageLayout::eTransferDstOptimal, 1, &copy_region);
-        transition_image(cmd, new_image.image, ImageLayout::eTransferDstOptimal, ImageLayout::eShaderReadOnlyOptimal);
+
+        if (p_mipmapped) {
+            generate_mipmaps(cmd, new_image.image, Extent2D {new_image.image_extent.width, new_image.image_extent.height});
+        } else {
+            transition_image(cmd, new_image.image, ImageLayout::eTransferDstOptimal, ImageLayout::eShaderReadOnlyOptimal);
+        }
     });
 
     destroy_buffer(upload_buffer);
     return new_image;
 }
 
+void Renderer::generate_mipmaps(CommandBuffer p_cmd, Image p_image, Extent2D p_size) {
+    uint32_t mip_levels = uint32_t(std::floor(std::log2(std::max(p_size.width, p_size.height)))) + 1;
+    for (uint32_t mip_level = 0; mip_level < mip_levels; mip_level++) {
+        Extent2D half_size {
+            .width  = uint32_t(p_size.width / 2),
+            .height = uint32_t(p_size.height / 2),
+        };
+
+        ImageMemoryBarrier2 image_barrier {
+            .srcStageMask = PipelineStageFlagBits2::eAllCommands,
+            .srcAccessMask = AccessFlagBits2::eMemoryWrite,
+            .dstStageMask = PipelineStageFlagBits2::eAllCommands,
+            .dstAccessMask = AccessFlagBits2::eMemoryWrite | AccessFlagBits2::eMemoryRead,
+            .oldLayout = ImageLayout::eTransferDstOptimal,
+            .newLayout = ImageLayout::eTransferSrcOptimal,
+            .image = p_image,
+            .subresourceRange = {
+                .aspectMask = ImageAspectFlagBits::eColor,
+                .baseMipLevel = mip_level,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = RemainingArrayLayers,
+            },
+        };
+
+        DependencyInfo dependency_info {
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &image_barrier
+        };
+
+        p_cmd.pipelineBarrier2(dependency_info);
+
+        if (mip_level < mip_levels - 1) {
+            ImageBlit2 blit_region {
+                .srcSubresource = {
+                    .aspectMask = ImageAspectFlagBits::eColor,
+                    .mipLevel = mip_level,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+                .dstSubresource = {
+                    .aspectMask = ImageAspectFlagBits::eColor,
+                    .mipLevel = mip_level + 1,
+                    .baseArrayLayer = 0,
+                    .layerCount = 1,
+                },
+            };
+
+            blit_region.srcOffsets[1] = {int(p_size.width), int(p_size.height), 1};
+            blit_region.dstOffsets[1] = {int(half_size.width), int(half_size.height), 1};
+
+            BlitImageInfo2 blit_info {
+                .srcImage = p_image,
+                .srcImageLayout = ImageLayout::eTransferSrcOptimal,
+                .dstImage = p_image,
+                .dstImageLayout = ImageLayout::eTransferDstOptimal,
+                .regionCount = 1,
+                .pRegions = &blit_region,
+                .filter = Filter::eLinear,
+            };
+
+            p_cmd.blitImage2(blit_info);
+            p_size = half_size;
+        }
+    }
+
+    transition_image(p_cmd, p_image, ImageLayout::eTransferSrcOptimal, ImageLayout::eShaderReadOnlyOptimal);
+}
 
 void Renderer::destroy_image(const AllocatedImage& p_image) {
     device.destroyImageView(p_image.image_view, nullptr);
@@ -1328,7 +1400,7 @@ void MaterialMetallicRoughness::build_pipelines(Renderer* p_renderer) {
         .set_shaders(mesh_shader, mesh_shader)
         .set_input_topology(PrimitiveTopology::eTriangleList)
         .set_polygon_mode(PolygonMode::eFill)
-        .set_cull_mode(CullModeFlagBits::eBack, FrontFace::eCounterClockwise)
+        .set_cull_mode(CullModeFlagBits::eNone, FrontFace::eCounterClockwise)
         .set_multisampling_none()
         .disable_blending()
         .enable_depth_testing(True, CompareOp::eGreaterOrEqual)
