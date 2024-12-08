@@ -70,10 +70,13 @@ struct MaterialMetallicRoughness {
     };
 
     struct MaterialResources {
-        AllocatedImage albedo_image;
+        AllocatedImage albedo_texture;
         Sampler albedo_sampler;
 
-        AllocatedImage metal_roughness_image;
+        AllocatedImage normal_texture;
+        Sampler normal_sampler;
+
+        AllocatedImage metal_roughness_texture;
         Sampler metal_roughness_sampler;
 
         Buffer data_buffer;
@@ -123,6 +126,7 @@ public:
 
     AllocatedImage image_white;
     AllocatedImage image_black;
+    AllocatedImage image_default_normal;
     AllocatedImage image_error;
     
     Sampler sampler_default_linear;

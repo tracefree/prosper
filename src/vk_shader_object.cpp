@@ -64,12 +64,12 @@ void ShaderObject::bind(CommandBuffer p_cmd) {
     if (vertex != nullptr) {
         p_cmd.bindShadersEXT(ShaderStageFlagBits::eVertex, vertex);
         p_cmd.bindShadersEXT(ShaderStageFlagBits::eFragment, fragment);
-        
+
         p_cmd.setRasterizerDiscardEnableEXT(False);
         ColorBlendEquationEXT blend_equation {};
         p_cmd.setColorBlendEquationEXT(0, blend_equation);
         p_cmd.setRasterizationSamplesEXT(SampleCountFlagBits::e1);
-        p_cmd.setCullModeEXT(CullModeFlagBits::eNone);
+        p_cmd.setCullModeEXT(CullModeFlagBits::eBack);
         p_cmd.setVertexInputEXT({}, {});
         p_cmd.setPrimitiveTopology(PrimitiveTopology::eTriangleList);
         p_cmd.setPrimitiveRestartEnable(False);

@@ -472,6 +472,9 @@ void Renderer::init_default_data() {
 
     uint32_t black = glm::packUnorm4x8(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
     image_black = create_image((void*) &white, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
+
+    uint32_t blue = glm::packUnorm4x8(glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    image_default_normal = create_image((void*) &blue, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
     
     uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
     std::array<uint32_t, 16 * 16 > pixels;
@@ -494,10 +497,12 @@ void Renderer::init_default_data() {
     std::tie(result, sampler_default_linear) = device.createSampler(sample_info);
 
     MaterialMetallicRoughness::MaterialResources material_resources {
-        .albedo_image            = image_white,
-        .albedo_sampler          = sampler_default_linear,
-        .metal_roughness_image   = image_black,
-        .metal_roughness_sampler = sampler_default_linear,
+        .albedo_texture            = image_white,
+        .albedo_sampler            = sampler_default_linear,
+        .normal_texture            = image_default_normal,
+        .normal_sampler            = sampler_default_nearest,
+        .metal_roughness_texture   = image_black,
+        .metal_roughness_sampler   = sampler_default_linear,
     };
 
     AllocatedBuffer material_constants = create_buffer(sizeof(MaterialMetallicRoughness::MaterialConstants), BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -520,6 +525,7 @@ void Renderer::init_default_data() {
 
         destroy_image(image_white);
         destroy_image(image_black);
+        destroy_image(image_default_normal);
         destroy_image(image_error);
 
         device.destroySampler(sampler_default_linear);
@@ -1368,6 +1374,7 @@ void MaterialMetallicRoughness::build_shaders(Renderer* p_renderer) {
     layout_builder.add_binding(0, DescriptorType::eUniformBuffer);
     layout_builder.add_binding(1, DescriptorType::eCombinedImageSampler);
     layout_builder.add_binding(2, DescriptorType::eCombinedImageSampler);
+    layout_builder.add_binding(3, DescriptorType::eCombinedImageSampler);
 
     material_layout = layout_builder.build(p_renderer->device, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment);
     DescriptorSetLayout layouts[] = {
@@ -1440,8 +1447,9 @@ MaterialInstance MaterialMetallicRoughness::write_material(Device p_device, Mate
 
     writer.clear();
     writer.write_buffer(0, p_resources.data_buffer, sizeof(MaterialConstants), p_resources.data_buffer_offset, DescriptorType::eUniformBuffer);
-    writer.write_image(1, p_resources.albedo_image.image_view,          p_resources.albedo_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
-    writer.write_image(2, p_resources.metal_roughness_image.image_view, p_resources.metal_roughness_sampler, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+    writer.write_image(1, p_resources.albedo_texture.image_view,          p_resources.albedo_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+    writer.write_image(2, p_resources.normal_texture.image_view,          p_resources.normal_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+    writer.write_image(3, p_resources.metal_roughness_texture.image_view, p_resources.metal_roughness_sampler, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
     writer.update_set(p_device, material_data.material_set);
 
     return material_data;

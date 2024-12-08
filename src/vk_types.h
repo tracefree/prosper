@@ -30,6 +30,7 @@ struct Vertex {
     Vec3 normal;
     float uv_y;
     Vec4 color;
+    Vec4 tangent;
 };
 
 struct GPUMeshBuffers {

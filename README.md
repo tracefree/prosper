@@ -12,6 +12,7 @@ Based on [vkguide.dev](https://vkguide.dev), with the main differences being tha
 - [X] [Dynamic rendering](https://docs.vulkan.org/samples/latest/samples/extensions/dynamic_rendering/README.html) instead of render passes
 - [x] [Shader objects](https://docs.vulkan.org/samples/latest/samples/extensions/shader_object/README.html) instead of pipelines
 - [ ] Implement `VK_LAYER_KHRONOS_shader_object` to remove reliance on `VK_EXT_shader_object`
+- [x] Normal mapping
 - [ ] GPU driven rendering
 - [ ] Deffered rendering
 - [ ] Skeletal animation

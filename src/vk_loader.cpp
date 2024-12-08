@@ -180,9 +180,11 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
         uint32_t min_offset_multiplier = ceilf(float(sizeof(MaterialMetallicRoughness::MaterialResources)) / float(physical_device_properties.limits.minUniformBufferOffsetAlignment));
 
         MaterialMetallicRoughness::MaterialResources material_resources {
-            .albedo_image = p_renderer->image_white,
+            .albedo_texture = p_renderer->image_white,
             .albedo_sampler = p_renderer->sampler_default_nearest,
-            .metal_roughness_image = p_renderer->image_black,
+            .normal_texture = p_renderer->image_default_normal,
+            .normal_sampler = p_renderer->sampler_default_nearest,
+            .metal_roughness_texture = p_renderer->image_black,
             .metal_roughness_sampler = p_renderer->sampler_default_linear,
             .data_buffer = file.material_data_buffer.buffer,
             .data_buffer_offset = data_index * min_offset_multiplier * uint32_t(physical_device_properties.limits.minUniformBufferOffsetAlignment),
@@ -192,8 +194,16 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
             size_t image_index   = asset.textures[temp_material.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
             size_t sampler_index = asset.textures[temp_material.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
 
-            material_resources.albedo_image = temp_textures[image_index];
+            material_resources.albedo_texture = temp_textures[image_index];
             material_resources.albedo_sampler = file.samplers[sampler_index];
+        }
+
+        if (temp_material.normalTexture.has_value()) {
+            size_t image_index   = asset.textures[temp_material.normalTexture.value().textureIndex].imageIndex.value();
+            size_t sampler_index = asset.textures[temp_material.normalTexture.value().textureIndex].samplerIndex.value();
+
+            material_resources.normal_texture = temp_textures[image_index];
+            material_resources.normal_sampler = file.samplers[sampler_index];
         }
 
         *new_material = p_renderer->metal_roughness_material.write_material(p_renderer->device, pass_type, material_resources, file.descriptor_pool);
@@ -261,6 +271,14 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
                     }
                 );
             }
+            auto tangents = primitive.findAttribute("TANGENT");
+            if (tangents != primitive.attributes.end()) {
+                fastgltf::iterateAccessorWithIndex<Vec4>(asset, asset.accessors[(*tangents).accessorIndex],
+                    [&](Vec4 tangent, size_t index) {
+                        vertices[initial_vertex_index + index].tangent = tangent;
+                    }
+                );
+            }
 
             // UV
             auto tex_coord = primitive.findAttribute("TEXCOORD_0");
@@ -276,9 +294,9 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
             // Color
             auto color_attribute = primitive.findAttribute("COLOR_0");
             if (color_attribute != primitive.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<Vec3>(asset, asset.accessors[(*color_attribute).accessorIndex],
-                    [&](Vec3 color, size_t index) {
-                        vertices[initial_vertex_index + index].color = Vec4(color, 1.0f);
+                fastgltf::iterateAccessorWithIndex<Vec4>(asset, asset.accessors[(*color_attribute).accessorIndex],
+                    [&](Vec4 color, size_t index) {
+                        vertices[initial_vertex_index + index].color = color;
                     }
                 );
             }
@@ -360,6 +378,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, std::filesystem::
 
 
 std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& p_asset, fastgltf::Image& p_image) {
+    // TODO: Detect normal map and choose format accordingly
     AllocatedImage new_image {};
     int width, height, number_channels;
     std::visit(
@@ -377,7 +396,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                         .height = uint32_t(height),
                         .depth  = 1,
                     };
-                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Srgb, ImageUsageFlagBits::eSampled, true);
+                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, true);
                     stbi_image_free(data);
                 }
             },
@@ -389,7 +408,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                         .height = uint32_t(height),
                         .depth  = 1,
                     };
-                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Srgb, ImageUsageFlagBits::eSampled, true);
+                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, true);
                     stbi_image_free(data);
                 }
             },
@@ -408,7 +427,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                                     .height = uint32_t(height),
                                     .depth  = 1,
                                 };
-                                new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Srgb, ImageUsageFlagBits::eSampled, true);
+                                new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, true);
                                 stbi_image_free(data);
                             }
                         }
@@ -448,6 +467,7 @@ void LoadedGLTF::clear_all() {
         if (value.image == renderer->image_error.image) { continue; }
         if (value.image == renderer->image_white.image) { continue; }
         if (value.image == renderer->image_black.image) { continue; }
+        if (value.image == renderer->image_default_normal.image) { continue; }
         renderer->destroy_image(value);
     }
 
