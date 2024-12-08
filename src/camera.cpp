@@ -18,6 +18,8 @@ void Camera::process_SDL_Event(SDL_Event& event) {
         if (event.key.scancode == SDL_SCANCODE_A) { velocity.x = -1.0; }
         if (event.key.scancode == SDL_SCANCODE_S) { velocity.z =  1.0; }
         if (event.key.scancode == SDL_SCANCODE_D) { velocity.x =  1.0; }
+        if (event.key.scancode == SDL_SCANCODE_Q) { velocity.y = -1.0; }
+        if (event.key.scancode == SDL_SCANCODE_E) { velocity.y =  1.0; }
         if (event.key.scancode == SDL_SCANCODE_LSHIFT) { speed = 10.0; }
     }
 
@@ -26,7 +28,9 @@ void Camera::process_SDL_Event(SDL_Event& event) {
         if (event.key.scancode == SDL_SCANCODE_A) { velocity.x =  0.0; }
         if (event.key.scancode == SDL_SCANCODE_S) { velocity.z =  0.0; }
         if (event.key.scancode == SDL_SCANCODE_D) { velocity.x =  0.0; }
-        if (event.key.scancode == SDL_SCANCODE_LSHIFT) { speed =  1.0; }
+        if (event.key.scancode == SDL_SCANCODE_Q) { velocity.y =  0.0; }
+        if (event.key.scancode == SDL_SCANCODE_E) { velocity.y =  0.0; }
+        if (event.key.scancode == SDL_SCANCODE_LSHIFT) { speed =  2.0; }
     }
 
     if (event.type == SDL_EVENT_MOUSE_MOTION) {
