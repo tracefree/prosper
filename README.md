@@ -1,7 +1,7 @@
 # Prosper
 C++ rendering engine using [Vulkan](https://www.vulkan.org/), the [Slang](https://shader-slang.com/) shader language, and [SDL3](https://wiki.libsdl.org/SDL3/FrontPage). (Work in progress.)
 
-![prosper2](https://github.com/user-attachments/assets/cad163c0-8217-40f1-89a0-ab018daf7205)
+![prosper3](https://github.com/user-attachments/assets/f34fb9a6-0b2c-4d97-a27f-cafe68ebcb4a)
 
 This project originally started as a minimal "Hello World" example to render a single triangle which I [moved to a new repository](https://github.com/tracefree/vulkan-triangle-sdl-slang) for anyone interested in a less complex setup using Slang and Vulkan. I will continue to develop the engine in this repository.
 
