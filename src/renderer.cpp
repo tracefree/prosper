@@ -19,6 +19,8 @@ extern Camera gCamera;
 extern PerformanceStats gStats;
 extern bool gValidationLayersEnabled;
 
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+
 bool Renderer::create_vulkan_instance(uint32_t p_extension_count, const char* const* p_extensions) {
     ApplicationInfo application_info {
         .apiVersion = ApiVersion13,
@@ -273,15 +275,14 @@ bool Renderer::create_shader_module(const uint32_t bytes[], const int length, Sh
 }
 
 
-bool Renderer::create_pipelines() {
-    create_background_shader();
-    metal_roughness_material.build_pipelines(this);
-    
+bool Renderer::create_shader_objects() {
+    create_skybox_shader();
+    metal_roughness_material.build_shaders(this);
     return true;
 }
 
 
-bool Renderer::create_background_shader() {
+bool Renderer::create_skybox_shader() {
     PushConstantRange push_constants {
         .stageFlags = ShaderStageFlagBits::eVertex,
         .offset = 0,
@@ -302,9 +303,6 @@ bool Renderer::create_background_shader() {
         return false;
     }
 
-    auto getInstanceProcAddress = (PFN_vkGetInstanceProcAddr) SDL_Vulkan_GetVkGetInstanceProcAddr();
-    dispatch_loader = DispatchLoaderDynamic(instance, getInstanceProcAddress, device);
-
     ShaderCreateInfoEXT vertex_shader_info {
         .flags = ShaderCreateFlagBitsEXT::eLinkStage,
         .stage = ShaderStageFlagBits::eVertex,
@@ -324,16 +322,15 @@ bool Renderer::create_background_shader() {
     fragment_shader_info.nextStage = {};
     fragment_shader_info.pName = "fragment";
 
-
     std::vector<ShaderCreateInfoEXT> shader_infos = { vertex_shader_info, fragment_shader_info };
     std::vector<ShaderEXT> skybox_shaders;
-    skybox_shaders = device.createShadersEXT(shader_infos, nullptr, dispatch_loader).value;
+    skybox_shaders = device.createShadersEXT(shader_infos, nullptr).value;
     skybox_shader.vertex = skybox_shaders[0];
     skybox_shader.fragment = skybox_shaders[1];
     
     deletion_queue.push_function([&]() {
-        device.destroyShaderEXT(skybox_shader.vertex, nullptr, dispatch_loader);
-        device.destroyShaderEXT(skybox_shader.fragment, nullptr, dispatch_loader);
+        device.destroyShaderEXT(skybox_shader.vertex, nullptr);
+        device.destroyShaderEXT(skybox_shader.fragment, nullptr);
         device.destroyPipelineLayout(skybox_layout);
     });
 
@@ -945,10 +942,14 @@ bool Renderer::initialize(uint32_t p_extension_count, const char* const* p_exten
     draw_extent = viewport_size;
     swapchain_image_format = Format::eB8G8R8A8Srgb;
 
+    auto getInstanceProcAddress = (PFN_vkGetInstanceProcAddr) SDL_Vulkan_GetVkGetInstanceProcAddr();
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(getInstanceProcAddress);
     
     if (!create_vulkan_instance(p_extension_count, p_extensions)) {
         print("Could not create Vulkan instance!");
     }
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(instance);
     
     VkSurfaceKHR vk_surface;
     if (!SDL_Vulkan_CreateSurface(window, instance, nullptr, &vk_surface)) {
@@ -967,6 +968,8 @@ bool Renderer::initialize(uint32_t p_extension_count, const char* const* p_exten
         print("Could not create logical device!");
         return false;
     }
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(device);
+
     if (!create_allocator()) {
         print("Could not create memory allocator!");
         return false;
@@ -995,7 +998,7 @@ bool Renderer::initialize(uint32_t p_extension_count, const char* const* p_exten
         print("Could not create descriptors!");
         return false;
     }
-    if (!create_pipelines()) {
+    if (!create_shader_objects()) {
         print("Could not create pipelines!");
         return false;
     }
@@ -1067,32 +1070,32 @@ void Renderer::draw_skybox(CommandBuffer p_cmd) {
     };
     p_cmd.setScissorWithCount(1, &scissor);
 
-    p_cmd.bindShadersEXT(ShaderStageFlagBits::eVertex, skybox_shader.vertex, dispatch_loader);
-    p_cmd.bindShadersEXT(ShaderStageFlagBits::eFragment, skybox_shader.fragment, dispatch_loader);
+    p_cmd.bindShadersEXT(ShaderStageFlagBits::eVertex, skybox_shader.vertex);
+    p_cmd.bindShadersEXT(ShaderStageFlagBits::eFragment, skybox_shader.fragment);
     p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, skybox_layout, 0, 1, &draw_image_descriptors, 0, nullptr);
 
-    p_cmd.setRasterizerDiscardEnableEXT(False, dispatch_loader);
+    p_cmd.setRasterizerDiscardEnableEXT(False);
     ColorBlendEquationEXT blend_equation {};
-    p_cmd.setColorBlendEquationEXT(0, blend_equation, dispatch_loader);
-    p_cmd.setRasterizationSamplesEXT(SampleCountFlagBits::e1, dispatch_loader);
-    p_cmd.setCullModeEXT(CullModeFlagBits::eNone, dispatch_loader);
-    p_cmd.setDepthWriteEnableEXT(False, dispatch_loader);
-    p_cmd.setVertexInputEXT({}, {}, dispatch_loader);
+    p_cmd.setColorBlendEquationEXT(0, blend_equation);
+    p_cmd.setRasterizationSamplesEXT(SampleCountFlagBits::e1);
+    p_cmd.setCullModeEXT(CullModeFlagBits::eNone);
+    p_cmd.setDepthWriteEnableEXT(False);
+    p_cmd.setVertexInputEXT({}, {});
     p_cmd.setPrimitiveTopology(PrimitiveTopology::eTriangleList);
     p_cmd.setPrimitiveRestartEnable(False);
-    p_cmd.setSampleMaskEXT(SampleCountFlagBits::e1, 1, dispatch_loader);
-    p_cmd.setAlphaToCoverageEnableEXT(False, dispatch_loader);
-    p_cmd.setPolygonModeEXT(PolygonMode::eFill, dispatch_loader);
+    p_cmd.setSampleMaskEXT(SampleCountFlagBits::e1, 1);
+    p_cmd.setAlphaToCoverageEnableEXT(False);
+    p_cmd.setPolygonModeEXT(PolygonMode::eFill);
     p_cmd.setFrontFace(FrontFace::eCounterClockwise);
     p_cmd.setDepthTestEnable(True);
     p_cmd.setDepthCompareOp(CompareOp::eGreaterOrEqual);
-    p_cmd.setDepthBoundsTestEnableEXT(False, dispatch_loader);
+    p_cmd.setDepthBoundsTestEnableEXT(False);
     p_cmd.setStencilTestEnable(False);
-    p_cmd.setDepthBiasEnableEXT(False, dispatch_loader);
+    p_cmd.setDepthBiasEnableEXT(False);
 
-    p_cmd.setLogicOpEnableEXT(False, dispatch_loader);
-    p_cmd.setColorBlendEnableEXT(0, {False}, dispatch_loader);
-    p_cmd.setColorWriteMaskEXT(0, { ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA }, dispatch_loader);
+    p_cmd.setLogicOpEnableEXT(False);
+    p_cmd.setColorBlendEnableEXT(0, {False});
+    p_cmd.setColorWriteMaskEXT(0, { ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA });
 
     p_cmd.draw(36, 1, 0, 0);
     p_cmd.endRendering();
@@ -1165,28 +1168,28 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
         .width = (float) viewport_size.width, .height = (float) viewport_size.height,
         .minDepth = 0.0f, .maxDepth = 1.0,
     };
-    p_cmd.setViewport(0, viewport);
+    p_cmd.setViewportWithCount(1, &viewport);
 
     Rect2D scissor {
         .offset = {.x = 0, .y = 0},
         .extent = viewport_size,
     };
-    p_cmd.setScissor(0, scissor);
+    p_cmd.setScissorWithCount(1, &scissor);
 
-    MaterialPipeline* previous_pipeline = nullptr;
     MaterialInstance* previous_material = nullptr;
+    ShaderObject* previous_shader = nullptr;
     Buffer previous_index_buffer = VK_NULL_HANDLE;
 
     auto draw_object = [&](const RenderObject& render_object) {
         if (render_object.material != previous_material) {
             previous_material = render_object.material;
-
-            if (render_object.material->pipeline != previous_pipeline) {
-                p_cmd.bindPipeline(PipelineBindPoint::eGraphics, render_object.material->pipeline->pipeline);
-                p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, render_object.material->pipeline->layout, 0, 1, &global_descriptor, 0, nullptr);
+            if (render_object.material->shader != previous_shader) {
+                previous_shader = render_object.material->shader;
+                render_object.material->shader->bind(p_cmd);
+                p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, render_object.material->shader->layout, 0, 1, &global_descriptor, 0, nullptr);
             }
 
-            p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, render_object.material->pipeline->layout, 1, 1, &render_object.material->material_set, 0, nullptr);
+            p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, render_object.material->shader->layout, 1, 1, &render_object.material->material_set, 0, nullptr);
         }
 
         if (render_object.index_buffer != previous_index_buffer) {
@@ -1198,7 +1201,7 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
         push_constants.vertex_buffer_address = render_object.vertex_buffer_address;
         push_constants.model_matrix = render_object.transform;
         push_constants.flags = show_normals;
-        p_cmd.pushConstants(render_object.material->pipeline->layout, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment, 0, sizeof(GPUDrawPushConstants), &push_constants);
+        p_cmd.pushConstants(render_object.material->shader->layout, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment, 0, sizeof(GPUDrawPushConstants), &push_constants);
 
         p_cmd.drawIndexed(render_object.index_count, 1, render_object.first_index, 0, 0);
 
@@ -1354,13 +1357,7 @@ void Renderer::update_scene() {
 
 // --- MaterialMetallicRoughness ---
 
-void MaterialMetallicRoughness::build_pipelines(Renderer* p_renderer) {
-    ShaderModule mesh_shader;
-    if (!p_renderer->create_shader_module(mesh_spv, mesh_spv_sizeInBytes, mesh_shader)) {
-        print("Could not create shader module!");
-        return;
-    }
-
+void MaterialMetallicRoughness::build_shaders(Renderer* p_renderer) {
     PushConstantRange matrix_range {
         .stageFlags = ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment,
         .offset = 0,
@@ -1372,7 +1369,7 @@ void MaterialMetallicRoughness::build_pipelines(Renderer* p_renderer) {
     layout_builder.add_binding(1, DescriptorType::eCombinedImageSampler);
     layout_builder.add_binding(2, DescriptorType::eCombinedImageSampler);
 
-    material_layout = layout_builder.build(p_renderer->device, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment); // 
+    material_layout = layout_builder.build(p_renderer->device, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment);
     DescriptorSetLayout layouts[] = {
         p_renderer->scene_data_descriptor_layout,
         material_layout
@@ -1392,12 +1389,9 @@ void MaterialMetallicRoughness::build_pipelines(Renderer* p_renderer) {
         print("Could not create pipeline layout!");
     }
 
-    opaque_pipeline.layout = new_layout;
-    transparent_pipeline.layout = new_layout;
-
-    PipelineBuilder pipeline_builder {};
-    pipeline_builder
-        .set_shaders(mesh_shader, mesh_shader)
+    opaque_shader = ShaderObject {};
+    opaque_shader.layout = new_layout;
+    opaque_shader
         .set_input_topology(PrimitiveTopology::eTriangleList)
         .set_polygon_mode(PolygonMode::eFill)
         .set_cull_mode(CullModeFlagBits::eNone, FrontFace::eCounterClockwise)
@@ -1407,24 +1401,39 @@ void MaterialMetallicRoughness::build_pipelines(Renderer* p_renderer) {
         .set_color_attachment_format(p_renderer->draw_image.image_format)
         .set_depth_format(p_renderer->depth_image.image_format);
     
-    pipeline_builder.pipeline_layout = new_layout;
-    opaque_pipeline.pipeline = pipeline_builder.build(p_renderer->device);
-    
-    pipeline_builder
-        .enable_blending_additive()
-        .enable_depth_testing(False, CompareOp::eGreaterOrEqual);
-    transparent_pipeline.pipeline = pipeline_builder.build(p_renderer->device);
+    ShaderCreateInfoEXT vertex_shader_info {
+        .flags = ShaderCreateFlagBitsEXT::eLinkStage,
+        .stage = ShaderStageFlagBits::eVertex,
+        .nextStage = ShaderStageFlagBits::eFragment,
+        .codeType = ShaderCodeTypeEXT::eSpirv,
+        .codeSize = mesh_spv_sizeInBytes,
+        .pCode = mesh_spv,
+        .pName = "vertex",
+        .setLayoutCount = 2,
+        .pSetLayouts = layouts,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &matrix_range,
+    };
 
-    p_renderer->device.destroyShaderModule(mesh_shader);
+    ShaderCreateInfoEXT fragment_shader_info = vertex_shader_info;
+    fragment_shader_info.stage = ShaderStageFlagBits::eFragment;
+    fragment_shader_info.nextStage = {};
+    fragment_shader_info.pName = "fragment";
+
+    std::vector<ShaderCreateInfoEXT> shader_infos = { vertex_shader_info, fragment_shader_info };
+    std::vector<ShaderEXT> mesh_shaders;
+    mesh_shaders = p_renderer->device.createShadersEXT(shader_infos).value;
+    opaque_shader.vertex = mesh_shaders[0];
+    opaque_shader.fragment = mesh_shaders[1];
 }
 
 MaterialInstance MaterialMetallicRoughness::write_material(Device p_device, MaterialPass p_pass, const MaterialResources& p_resources, DescriptorAllocatorGrowable& p_descriptor_allocator) {
     MaterialInstance material_data;
     material_data.pass_type = p_pass;
     if (p_pass == MaterialPass::Transparent) {
-        material_data.pipeline = &transparent_pipeline;
+        
     } else {
-        material_data.pipeline = &opaque_pipeline;
+        material_data.shader = &opaque_shader;
     }
 
     material_data.material_set = p_descriptor_allocator.allocate(p_device, material_layout);
@@ -1440,7 +1449,7 @@ MaterialInstance MaterialMetallicRoughness::write_material(Device p_device, Mate
 
 void MaterialMetallicRoughness::clear_resources(Device p_device) {
     p_device.destroyDescriptorSetLayout(material_layout);
-    p_device.destroyPipelineLayout(opaque_pipeline.layout);
-    p_device.destroyPipeline(opaque_pipeline.pipeline);
-    p_device.destroyPipeline(transparent_pipeline.pipeline);
+    p_device.destroyPipelineLayout(opaque_shader.layout);
+    p_device.destroyShaderEXT(opaque_shader.vertex, nullptr);
+    p_device.destroyShaderEXT(opaque_shader.fragment, nullptr);   
 }

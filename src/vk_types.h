@@ -8,6 +8,7 @@
 
 using namespace vk;
 
+struct ShaderObject;
 
 struct AllocatedImage {
     Image image;
@@ -64,6 +65,7 @@ struct MaterialPipeline {
 };
 
 struct MaterialInstance {
+    ShaderObject* shader;
     MaterialPipeline* pipeline;
     DescriptorSet material_set;
     MaterialPass pass_type;
@@ -124,9 +126,4 @@ struct PerformanceStats {
     uint32_t drawcall_count;
     float scene_update_time;
     float mesh_draw_time;
-};
-
-struct ShaderObject {
-    ShaderEXT vertex;
-    ShaderEXT fragment;
 };

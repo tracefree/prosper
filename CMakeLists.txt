@@ -30,6 +30,7 @@ add_executable(prosper
     src/renderer.cpp
     src/vk_types.cpp
     src/vk_pipelines.cpp
+    src/vk_shader_object.cpp
     src/vk_loader.cpp
     src/vk_descriptors.cpp
     src/stb_image_usage.cpp
@@ -53,8 +54,9 @@ target_include_directories(stb_image INTERFACE third_party/stb/)
 target_compile_definitions(prosper PUBLIC
   VULKAN_HPP_NO_CONSTRUCTORS
   VULKAN_HPP_NO_EXCEPTIONS
-  VK_USE_PLATFORM_WAYLAND_KHR
   VULKAN_HPP_NO_NODISCARD_WARNINGS
+  VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
+  VK_USE_PLATFORM_WAYLAND_KHR
   GLM_FORCE_DEPTH_ZERO_TO_ONE
 )
 

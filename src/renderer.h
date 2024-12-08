@@ -11,6 +11,7 @@
 #include "vk_mem_alloc.h"
 #include "vk_types.h"
 #include "vk_descriptors.h"
+#include "vk_shader_object.h"
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 
@@ -52,15 +53,13 @@ struct ComputePushConstants {
 
 struct ComputeEffect {
     const char* name;
-    Pipeline pipeline;
     PipelineLayout layout;
-
     ComputePushConstants data;
 };
 
 struct MaterialMetallicRoughness {
-    MaterialPipeline opaque_pipeline;
-    MaterialPipeline transparent_pipeline;
+    ShaderObject opaque_shader;
+    ShaderObject transparent_shader;
 
     DescriptorSetLayout material_layout;
 
@@ -83,7 +82,7 @@ struct MaterialMetallicRoughness {
 
     DescriptorWriter writer;
 
-    void build_pipelines(Renderer* p_renderer);
+    void build_shaders(Renderer* p_renderer);
     void clear_resources(Device p_device);
 
     MaterialInstance write_material(Device p_device, MaterialPass p_pass, const MaterialResources& resources, DescriptorAllocatorGrowable& descriptor_allocatpr);
@@ -113,7 +112,6 @@ public:
     DescriptorSet draw_image_descriptors;
     DescriptorSetLayout draw_image_descriptor_layout;
 
-    Pipeline gradient_pipeline;
     PipelineLayout skybox_layout;
 
     Fence immediate_fence;
@@ -131,8 +129,7 @@ public:
     Sampler sampler_default_nearest;
 
     DescriptorSetLayout single_image_descriptor_layout;
-
-    DispatchLoaderDynamic dispatch_loader;
+    
     ShaderObject skybox_shader;
     
     bool create_vulkan_instance(uint32_t p_extension_count, const char* const* p_extensions);
@@ -142,8 +139,8 @@ public:
     bool create_swapchain();
     bool create_draw_image();
     bool create_image_views();
-    bool create_pipelines();
-    bool create_background_shader();
+    bool create_shader_objects();
+    bool create_skybox_shader();
     bool create_commands();
     bool create_sync_objects();
     bool create_descriptors();
