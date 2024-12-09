@@ -19,7 +19,6 @@ struct VSOutput {
 struct Push {
     float4x4 model_matrix;
     Vertex *vertices;
-    int flags;
 }
 
 uniform SceneData scene_data;
@@ -42,19 +41,12 @@ ConstantBuffer<Push> push_constants;
 VSOutput vertex(uint vertexID: SV_VertexID) {
     let vertex = push_constants.vertices[vertexID];
     
-    /* TODO: Figure out why this doesn't work
-    let view_model_matrix = mul(scene_data.view, push_constants.model_matrix);
+    let model_matrix = push_constants.model_matrix;
     var tbn_vs = float3x3(
-        mul(push_constants.model_matrix, float4(vertex.tangent.xyz, 0.0)).xyz,
-        mul(push_constants.model_matrix, float4(cross(vertex.normal, vertex.tangent.xyz) * vertex.tangent.w, 0.0)).xyz,
-        mul(push_constants.model_matrix, float4(vertex.normal, 0.0)).xyz
-    ); */
-    
-    let tbn_vs = float3x3(
-        vertex.tangent.xyz,
-        cross(vertex.normal, vertex.tangent.xyz) * vertex.tangent.w,
-        vertex.normal
-    );
+        normalize(mul(float4(vertex.tangent.xyz, 0.0), model_matrix).xyz),
+        normalize(mul(float4(cross(vertex.normal, vertex.tangent.xyz) * vertex.tangent.w, 0.0), model_matrix).xyz),
+        normalize(mul(float4(vertex.normal, 0.0), model_matrix).xyz)
+    ); 
     
     let world_position = mul(push_constants.model_matrix, float4(vertex.position, 1.0));
     
@@ -74,7 +66,7 @@ float4 fragment(
     float2 uv : VertexUV,
 ) : SV_Target
 {
-    if (push_constants.flags > 0) {
+    if (-2 > 0) {
         return float4(tbn_ws[2].rgb * 0.5 + 0.5, 1.0);
     } else {
         let albedo_texture_sample = fragment_params.albedo_texture.Sample(uv);
@@ -88,6 +80,9 @@ float4 fragment(
         let light_value = max(dot(normal_ws, scene_data.sunlight_direction.xyz), 0.0);
         let albedo = color.rgb * pow(albedo_texture_sample.rgb, 2.2);
         let ambient = albedo * scene_data.ambient_color.rgb;
+
+        let metallic = fragment_params.metal_roughness_texture.Sample(uv).r;
+        //return float4(float3(metallic), 1.0);
         return float4(albedo * light_value * scene_data.sunlight_color.w + ambient, albedo_texture_sample.a);
     }
 }

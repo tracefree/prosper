@@ -42,7 +42,7 @@ struct GPUMeshBuffers {
 struct GPUDrawPushConstants {
     Mat4 model_matrix;
     DeviceAddress vertex_buffer_address;
-    int flags;
+    //int flags;
 };
 
 struct GPUSceneData {

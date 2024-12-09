@@ -16,7 +16,7 @@ void Node::draw(const Mat4& p_transform, DrawContext& p_context) {
 
 void MeshInstance::draw(const Mat4& p_transform, DrawContext& p_context) {
     Mat4 node_matrix = p_transform * global_transform;
-
+    
     for (auto& surface : mesh->surfaces) {
         RenderObject object {
             .index_count = surface.count,

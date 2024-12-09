@@ -42,9 +42,9 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     // Create window
     SDL_PropertiesID window_props {SDL_CreateProperties()};
-    SDL_SetNumberProperty(window_props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 1920);
-    SDL_SetNumberProperty(window_props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 1080);
-    SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, false);
+    SDL_SetNumberProperty(window_props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 2560);
+    SDL_SetNumberProperty(window_props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 1440);
+    SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
     SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, false);
     SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
     SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
@@ -71,7 +71,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
         extensions.emplace_back(sdl_extension_names[i]);
     }
 
-    gRenderer.initialize(extensions.size(), extensions.data(), gWindow, 1920, 1080);
+    gRenderer.initialize(extensions.size(), extensions.data(), gWindow, 2560, 1440);
 
     gRenderer.loaded_scenes["scene"] = *load_gltf_scene(&gRenderer, "../../assets/models/Sponza/glTF/Sponza.gltf");
 
