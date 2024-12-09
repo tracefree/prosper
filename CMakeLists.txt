@@ -44,6 +44,7 @@ set_property(
 
 target_include_directories(prosper PRIVATE
   src
+  shaders/src/common
   third_party/imgui
   third_party/imgui/backends
 )

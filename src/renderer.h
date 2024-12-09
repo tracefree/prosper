@@ -179,7 +179,7 @@ public:
 
     std::vector<ComputeEffect> background_effects;
     int current_background_effect {0};
-    int show_normals {0};
+    uint32_t flags {0};
     bool resize_requested {false};
     GPUSceneData scene_data;
     DescriptorSetLayout scene_data_descriptor_layout;

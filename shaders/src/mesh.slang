@@ -1,4 +1,5 @@
 #include "input_structures.slang"
+#include "common/render_flags.h"
 
 struct Vertex {
     float3 position;
@@ -19,6 +20,7 @@ struct VSOutput {
 struct Push {
     float4x4 model_matrix;
     Vertex *vertices;
+    uint32_t flags;
 }
 
 uniform SceneData scene_data;
@@ -66,23 +68,32 @@ float4 fragment(
     float2 uv : VertexUV,
 ) : SV_Target
 {
-    if (-2 > 0) {
+    if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_NORMALS) > 0) {
         return float4(tbn_ws[2].rgb * 0.5 + 0.5, 1.0);
-    } else {
-        let albedo_texture_sample = fragment_params.albedo_texture.Sample(uv);
-        if (albedo_texture_sample.a < 0.5) {
-            discard;
-        }
-
-        let normal_texture_sample = fragment_params.normal_texture.Sample(uv).xyz;
-        var normal_ts = normal_texture_sample * 2.0 - 1.0;
-        let normal_ws = mul(normal_ts, tbn_ws);
-        let light_value = max(dot(normal_ws, scene_data.sunlight_direction.xyz), 0.0);
-        let albedo = color.rgb * pow(albedo_texture_sample.rgb, 2.2);
-        let ambient = albedo * scene_data.ambient_color.rgb;
-
-        let metallic = fragment_params.metal_roughness_texture.Sample(uv).r;
-        //return float4(float3(metallic), 1.0);
-        return float4(albedo * light_value * scene_data.sunlight_color.w + ambient, albedo_texture_sample.a);
     }
+
+    if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_METAL) > 0) {
+        let metallic = fragment_params.metal_roughness_texture.Sample(uv).r;
+        return float4(float3(metallic), 1.0);
+    }
+
+    if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_ROUGHNESS) > 0) {
+        let roughness = fragment_params.metal_roughness_texture.Sample(uv).g;
+        return float4(float3(roughness), 1.0);
+    }
+    
+
+    let albedo_texture_sample = fragment_params.albedo_texture.Sample(uv);
+    if (albedo_texture_sample.a < 0.5) {
+        discard;
+    }
+
+    let normal_texture_sample = fragment_params.normal_texture.Sample(uv).xyz;
+    var normal_ts = normal_texture_sample * 2.0 - 1.0;
+    let normal_ws = mul(normal_ts, tbn_ws);
+    let light_value = max(dot(normal_ws, scene_data.sunlight_direction.xyz), 0.0);
+    let albedo = color.rgb * pow(albedo_texture_sample.rgb, 2.2);
+    let ambient = albedo * scene_data.ambient_color.rgb;
+
+    return float4(albedo * light_value * scene_data.sunlight_color.w + ambient, albedo_texture_sample.a);
 }

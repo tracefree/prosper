@@ -8,6 +8,7 @@
 #include "util.h"
 #include "renderer.h"
 #include "camera.h"
+#include "render_flags.h"
 
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_vulkan.h"
@@ -98,11 +99,9 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     
     if (ImGui::Begin("Configure")) {
         ComputeEffect& selected = gRenderer.background_effects[gRenderer.current_background_effect];
-        ImGui::SliderInt("Show normals", &gRenderer.show_normals, 0, 1);
-
-        ImGuiColorEditFlags flags = ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs;
-    //    ImGui::ColorPicker4("Top color", (float*)& selected.data.data1, flags);
-    //    ImGui::ColorPicker4("Bottom color", (float*)& selected.data.data2, flags);
+        ImGui::CheckboxFlags("Show normals",   &gRenderer.flags, RENDER_FLAG_BIT_SHOW_NORMALS);
+        ImGui::CheckboxFlags("Show metallic",  &gRenderer.flags, RENDER_FLAG_BIT_SHOW_METAL);
+        ImGui::CheckboxFlags("Show roughness", &gRenderer.flags, RENDER_FLAG_BIT_SHOW_ROUGHNESS);
     }
     ImGui::End();
 

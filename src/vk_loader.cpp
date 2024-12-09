@@ -206,6 +206,15 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
             material_resources.normal_sampler = file.samplers[sampler_index];
         }
 
+        if (temp_material.packedNormalMetallicRoughnessTexture.has_value()) {
+            print("Has metal roughness");
+            size_t image_index   = asset.textures[temp_material.packedNormalMetallicRoughnessTexture.value().textureIndex].imageIndex.value();
+            size_t sampler_index = asset.textures[temp_material.packedNormalMetallicRoughnessTexture.value().textureIndex].samplerIndex.value();
+
+            material_resources.metal_roughness_texture = temp_textures[image_index];
+            material_resources.metal_roughness_sampler = file.samplers[sampler_index];
+        }
+
         *new_material = p_renderer->metal_roughness_material.write_material(p_renderer->device, pass_type, material_resources, file.descriptor_pool);
         data_index++;
     }

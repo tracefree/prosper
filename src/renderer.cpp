@@ -471,7 +471,7 @@ void Renderer::init_default_data() {
     image_white = create_image((void*) &white, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
 
     uint32_t black = glm::packUnorm4x8(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
-    image_black = create_image((void*) &white, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
+    image_black = create_image((void*) &black, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
 
     uint32_t blue = glm::packUnorm4x8(glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
     image_default_normal = create_image((void*) &blue, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
@@ -1206,7 +1206,7 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
         GPUDrawPushConstants push_constants;
         push_constants.vertex_buffer_address = render_object.vertex_buffer_address;
         push_constants.model_matrix = render_object.transform;
-        //push_constants.flags = show_normals;
+        push_constants.flags = flags;
         p_cmd.pushConstants(render_object.material->shader->layout, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment, 0, sizeof(GPUDrawPushConstants), &push_constants);
 
         p_cmd.drawIndexed(render_object.index_count, 1, render_object.first_index, 0, 0);
