@@ -19,7 +19,7 @@ Based on [vkguide.dev](https://vkguide.dev), with the main differences being tha
 - [ ] Integrating a physics engine
 - [ ] HDR with tonemapping
 - [ ] Bloom
-- [ ] MSAA
+- [x] MSAA
 - [ ] SSAO
 - [ ] Either PBR or a shading model useful for stylized rendering
 - [ ] Dynamic lighting

@@ -22,6 +22,7 @@ Uint64 previous_time {0};
 PerformanceStats gStats {};
 
 bool gValidationLayersEnabled { true };
+vk::SampleCountFlagBits gSamples { vk::SampleCountFlagBits::e8 };
 
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {

@@ -114,6 +114,7 @@ public:
     DescriptorAllocatorGrowable global_descriptor_allocator;
     DescriptorSet draw_image_descriptors;
     DescriptorSetLayout draw_image_descriptor_layout;
+    DescriptorSetLayout storage_image_descriptor_layout;
 
     PipelineLayout skybox_layout;
 
@@ -135,6 +136,7 @@ public:
     DescriptorSetLayout single_image_descriptor_layout;
     
     ShaderObject skybox_shader;
+    ShaderObject lighting_shader;
     
     bool create_vulkan_instance(uint32_t p_extension_count, const char* const* p_extensions);
     bool create_physical_device();
@@ -145,6 +147,7 @@ public:
     bool create_image_views();
     bool create_shader_objects();
     bool create_skybox_shader();
+    bool create_lighting_shader();
     bool create_commands();
     bool create_sync_objects();
     bool create_descriptors();
@@ -162,6 +165,7 @@ public:
 
     void draw_skybox(CommandBuffer p_cmd);
     void draw_geometry(CommandBuffer p_cmd);
+    void draw_lighting(CommandBuffer p_cmd);
     void draw_imgui(CommandBuffer p_cmd, ImageView p_target_image_view);
 
 public:
@@ -176,6 +180,8 @@ public:
     AllocatedImage draw_image {};
     AllocatedImage depth_image {};
     Extent2D draw_extent;
+
+    AllocatedImage storage_image {};
 
     std::vector<ComputeEffect> background_effects;
     int current_background_effect {0};
@@ -192,8 +198,8 @@ public:
     
     bool create_shader_module(const uint32_t bytes[], const int length, ShaderModule &r_shader_module);
     GPUMeshBuffers upload_mesh(std::span<uint32_t> p_indices, std::span<Vertex> p_vertices);
-    AllocatedImage create_image(Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool mipmapped = False);
-    AllocatedImage create_image(void* p_data, Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool mipmapped = False);
+    AllocatedImage create_image(Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool mipmapped = False, SampleCountFlagBits p_sample_count = SampleCountFlagBits::e1);
+    AllocatedImage create_image(void* p_data, Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool mipmapped = False, SampleCountFlagBits p_sample_count = SampleCountFlagBits::e1);
     void generate_mipmaps(CommandBuffer p_cmd, Image p_image, Extent2D p_size);
     void destroy_image(const AllocatedImage& p_image);
 

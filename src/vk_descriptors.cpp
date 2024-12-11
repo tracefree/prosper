@@ -232,6 +232,9 @@ void DescriptorWriter::clear() {
 }
 
 void DescriptorWriter::update_set(Device p_device, DescriptorSet p_set) {
+    if (writes.empty()) {
+        return;
+    }
     for (WriteDescriptorSet& write : writes) {
         write.dstSet = p_set;
     }

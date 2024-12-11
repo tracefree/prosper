@@ -7,6 +7,7 @@
 #include "shaders/gradient.h"
 #include "shaders/mesh.h"
 #include "shaders/skybox.h"
+#include "shaders/lighting.h"
 
 #include <cmath>
 #include <vulkan/vk_enum_string_helper.h>
@@ -18,6 +19,7 @@
 extern Camera gCamera;
 extern PerformanceStats gStats;
 extern bool gValidationLayersEnabled;
+extern vk::SampleCountFlagBits gSamples;
 
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
@@ -77,19 +79,29 @@ bool Renderer::create_device() {
         }
         graphics_queue_index++;
     }
+    //graphics_queue_index += 1;
     
     const float priority = 1.0f;
     std::vector<const char*> enabled_extensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_EXT_SHADER_OBJECT_EXTENSION_NAME
+        VK_EXT_SHADER_OBJECT_EXTENSION_NAME,
+   //     VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME,
     };
     DeviceQueueCreateInfo queue_create_info {
         .queueFamilyIndex = graphics_queue_index,
         .queueCount = 1,
         .pQueuePriorities = &priority,
     };
-    PhysicalDeviceFeatures features {};
-    PhysicalDeviceShaderObjectFeaturesEXT shader_object_extension { .shaderObject = True };
+    PhysicalDeviceFeatures features {
+        .shaderStorageImageMultisample = True,
+    };
+    PhysicalDeviceComputeShaderDerivativesFeaturesNV compute_shader_derivatives_features {
+    //    .computeDerivativeGroupQuads = True,
+    };
+    PhysicalDeviceShaderObjectFeaturesEXT shader_object_extension {
+    //    .pNext = &compute_shader_derivatives_features,
+        .shaderObject = True,
+    };
     PhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features {
         .pNext = &shader_object_extension,
         .bufferDeviceAddress = True,
@@ -113,6 +125,10 @@ bool Renderer::create_device() {
     };
     Result result;
     std::tie(result, device) = physical_device.createDevice(create_info);
+    if (result != Result::eSuccess) {
+        print("Could not create device! Vulkan error: %s", string_VkResult((VkResult) result));
+        return false;
+    }
     deletion_queue.push_function([this]() {
         device.destroy();
     });
@@ -166,17 +182,18 @@ bool Renderer::create_draw_image() {
         .depth  = 1,
     };
 
+    // Color
     draw_image.image_format = Format::eR16G16B16A16Sfloat;
     draw_image.image_extent = draw_image_extent;
 
-    ImageUsageFlags draw_image_usages = ImageUsageFlagBits::eTransferSrc | ImageUsageFlagBits::eTransferDst | ImageUsageFlagBits::eStorage | ImageUsageFlagBits::eColorAttachment;
+    ImageUsageFlags draw_image_usages = ImageUsageFlagBits::eColorAttachment | ImageUsageFlagBits::eSampled | ImageUsageFlagBits::eInputAttachment;
     ImageCreateInfo image_info {
         .imageType   = ImageType::e2D,
         .format      = draw_image.image_format,
         .extent      = draw_image_extent,
         .mipLevels   = 1,
         .arrayLayers = 1,
-        .samples     = SampleCountFlagBits::e1,
+        .samples     = gSamples,
         .tiling      = ImageTiling::eOptimal,
         .usage       = draw_image_usages,
     };
@@ -206,6 +223,7 @@ bool Renderer::create_draw_image() {
     Result result;
     std::tie(result, draw_image.image_view) = device.createImageView(view_info);
     
+    // Depth
     depth_image.image_format = Format::eD32Sfloat;
     depth_image.image_extent = draw_image.image_extent;
     ImageUsageFlags depth_image_usages {ImageUsageFlagBits::eDepthStencilAttachment};
@@ -218,13 +236,37 @@ bool Renderer::create_draw_image() {
     view_info.subresourceRange.aspectMask = ImageAspectFlagBits::eDepth;
     std::tie(result, depth_image.image_view) = device.createImageView(view_info);
 
+    // Storage
+    storage_image.image_format = Format::eR8G8B8A8Snorm;
+    storage_image.image_extent = draw_image_extent;
+
+    ImageCreateInfo storage_image_info = image_info;
+    storage_image_info.format = storage_image.image_format;
+    storage_image_info.usage = ImageUsageFlagBits::eTransferSrc | ImageUsageFlagBits::eStorage;
+    storage_image_info.samples = SampleCountFlagBits::e1;
+    creation_result = vmaCreateImage(allocator, (VkImageCreateInfo*)&storage_image_info, &image_alloc_info, (VkImage_T**) &storage_image.image, &storage_image.allocation, nullptr);
+    if (creation_result != VK_SUCCESS) {
+        print("Could not create storage image!");
+        return false;
+    }
+
+    view_info.image = storage_image.image;
+    view_info.format = storage_image.image_format;
+    view_info.subresourceRange.aspectMask = ImageAspectFlagBits::eColor;
+    std::tie(result, storage_image.image_view) = device.createImageView(view_info);
+    
+    // Cleanup
     deletion_queue.push_function([this]() {
         vmaDestroyImage(allocator, draw_image.image, draw_image.allocation);
         device.destroyImageView(draw_image.image_view);
 
         vmaDestroyImage(allocator, depth_image.image, depth_image.allocation);
         device.destroyImageView(depth_image.image_view);
+
+        vmaDestroyImage(allocator, storage_image.image, storage_image.allocation);
+        device.destroyImageView(storage_image.image_view);
     });
+
     return (result == Result::eSuccess);
 }
 
@@ -278,6 +320,7 @@ bool Renderer::create_shader_module(const uint32_t bytes[], const int length, Sh
 bool Renderer::create_shader_objects() {
     create_skybox_shader();
     metal_roughness_material.build_shaders(this);
+    create_lighting_shader();
     return true;
 }
 
@@ -290,8 +333,8 @@ bool Renderer::create_skybox_shader() {
     };
 
     PipelineLayoutCreateInfo layout_info {
-        .setLayoutCount = 1,
-        .pSetLayouts    = &draw_image_descriptor_layout,
+        .setLayoutCount = 0,
+       // .pSetLayouts    = &draw_image_descriptor_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constants,
     };
@@ -311,8 +354,8 @@ bool Renderer::create_skybox_shader() {
         .codeSize = skybox_spv_sizeInBytes,
         .pCode = skybox_spv,
         .pName = "vertex",
-        .setLayoutCount = 1,
-        .pSetLayouts = &draw_image_descriptor_layout,
+     //   .setLayoutCount = 1,
+     //   .pSetLayouts = &draw_image_descriptor_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constants,
     };
@@ -327,11 +370,52 @@ bool Renderer::create_skybox_shader() {
     skybox_shaders = device.createShadersEXT(shader_infos, nullptr).value;
     skybox_shader.vertex = skybox_shaders[0];
     skybox_shader.fragment = skybox_shaders[1];
+
+    skybox_shader
+        .set_cull_mode(CullModeFlagBits::eNone, FrontFace::eCounterClockwise)
+        .enable_depth_writing(False);
     
     deletion_queue.push_function([&]() {
         device.destroyShaderEXT(skybox_shader.vertex, nullptr);
         device.destroyShaderEXT(skybox_shader.fragment, nullptr);
         device.destroyPipelineLayout(skybox_layout);
+    });
+
+    return true;
+}
+
+bool Renderer::create_lighting_shader() {
+    PipelineLayoutCreateInfo layout_info {
+        .setLayoutCount = 1,
+        .pSetLayouts = &storage_image_descriptor_layout,
+    };
+
+    auto pipeline_layout_result = device.createPipelineLayout(layout_info);
+    if (pipeline_layout_result.result != Result::eSuccess) {
+        print("Could not create storage image pipeline layout!");
+        return false;
+    }
+
+    ShaderCreateInfoEXT compute_shader_info {
+        .stage = ShaderStageFlagBits::eCompute,
+        .codeType = ShaderCodeTypeEXT::eSpirv,
+        .codeSize = lighting_spv_sizeInBytes,
+        .pCode = lighting_spv,
+        .pName = "compute",
+        .setLayoutCount = 1,
+        .pSetLayouts = &storage_image_descriptor_layout,
+    };
+
+    auto lighting_shader_result = device.createShaderEXT(compute_shader_info);
+    if (lighting_shader_result.result != Result::eSuccess) {
+        print("Could not create lighting shader!");
+        return false;
+    }
+    lighting_shader.compute = lighting_shader_result.value;
+    lighting_shader.layout = pipeline_layout_result.value;
+
+    deletion_queue.push_function([&]() {
+        lighting_shader.cleanup(device);
     });
 
     return true;
@@ -418,16 +502,22 @@ bool Renderer::create_descriptors() {
     global_descriptor_allocator.init_pool(device, 10, sizes);
 
     {
+       // DescriptorLayoutBuilder builder;
+       // builder.add_binding(0, DescriptorType::eInp);
+       // draw_image_descriptor_layout = builder.build(device, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment);
+    }
+    {
         DescriptorLayoutBuilder builder;
-        builder.add_binding(0, DescriptorType::eStorageImage);
-        draw_image_descriptor_layout = builder.build(device, ShaderStageFlagBits::eCompute);
+        builder.add_binding(0, DescriptorType::eSampledImage); // Input draw_image
+        builder.add_binding(1, DescriptorType::eStorageImage); // Output storage image
+        storage_image_descriptor_layout = builder.build(device, ShaderStageFlagBits::eCompute);
     }
 
-    draw_image_descriptors = global_descriptor_allocator.allocate(device, draw_image_descriptor_layout);
+   // draw_image_descriptors = global_descriptor_allocator.allocate(device, draw_image_descriptor_layout);
     
-    DescriptorWriter writer {};
-    writer.write_image(0, draw_image.image_view, VK_NULL_HANDLE, ImageLayout::eGeneral, DescriptorType::eStorageImage);
-    writer.update_set(device, draw_image_descriptors);
+    //DescriptorWriter writer {};
+    //writer.write_image(0, draw_image.image_view, VK_NULL_HANDLE, ImageLayout::eGeneral, DescriptorType::eStorageImage);
+    //writer.update_set(device, draw_image_descriptors);
 
     DescriptorLayoutBuilder builder;
     builder.add_binding(0, DescriptorType::eUniformBuffer);
@@ -442,6 +532,7 @@ bool Renderer::create_descriptors() {
     deletion_queue.push_function([&]() {
         global_descriptor_allocator.destroy_pools(device);
         device.destroyDescriptorSetLayout(draw_image_descriptor_layout);
+        device.destroyDescriptorSetLayout(storage_image_descriptor_layout);
         device.destroyDescriptorSetLayout(scene_data_descriptor_layout);
         device.destroyDescriptorSetLayout(single_image_descriptor_layout);
     });
@@ -561,7 +652,7 @@ void Renderer::destroy_buffer(const AllocatedBuffer& p_buffer) {
 }
 
 
-AllocatedImage Renderer::create_image(Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool mipmapped) {
+AllocatedImage Renderer::create_image(Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool mipmapped, SampleCountFlagBits p_sample_count) {
     AllocatedImage new_image {
         .image_format = p_format,
         .image_extent = p_size,
@@ -573,7 +664,7 @@ AllocatedImage Renderer::create_image(Extent3D p_size, Format p_format, ImageUsa
         .extent = p_size,
         .mipLevels   = 1,
         .arrayLayers = 1,
-        .samples     = SampleCountFlagBits::e1,
+        .samples     = p_sample_count,
         .tiling      = ImageTiling::eOptimal,
         .usage = p_usage,
     };
@@ -616,11 +707,11 @@ AllocatedImage Renderer::create_image(Extent3D p_size, Format p_format, ImageUsa
     return new_image;
 }
 
-AllocatedImage Renderer::create_image(void* p_data, Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool p_mipmapped) {
+AllocatedImage Renderer::create_image(void* p_data, Extent3D p_size, Format p_format, ImageUsageFlags p_usage, bool p_mipmapped, SampleCountFlagBits p_sample_count) {
     size_t data_size = p_size.depth * p_size.width * p_size.height * 4;
     AllocatedBuffer upload_buffer = create_buffer(data_size, BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_TO_GPU);
     memcpy(upload_buffer.info.pMappedData, p_data, data_size);
-    AllocatedImage new_image = create_image(p_size, p_format, p_usage | ImageUsageFlagBits::eTransferDst | ImageUsageFlagBits::eTransferSrc, p_mipmapped);
+    AllocatedImage new_image = create_image(p_size, p_format, p_usage | ImageUsageFlagBits::eTransferDst | ImageUsageFlagBits::eTransferSrc, p_mipmapped, p_sample_count);
     
     immediate_submit([&, this](CommandBuffer cmd) {
         transition_image(cmd, new_image.image, ImageLayout::eUndefined, ImageLayout::eTransferDstOptimal);
@@ -1076,33 +1167,7 @@ void Renderer::draw_skybox(CommandBuffer p_cmd) {
     };
     p_cmd.setScissorWithCount(1, &scissor);
 
-    p_cmd.bindShadersEXT(ShaderStageFlagBits::eVertex, skybox_shader.vertex);
-    p_cmd.bindShadersEXT(ShaderStageFlagBits::eFragment, skybox_shader.fragment);
-    p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, skybox_layout, 0, 1, &draw_image_descriptors, 0, nullptr);
-
-    p_cmd.setRasterizerDiscardEnableEXT(False);
-    ColorBlendEquationEXT blend_equation {};
-    p_cmd.setColorBlendEquationEXT(0, blend_equation);
-    p_cmd.setRasterizationSamplesEXT(SampleCountFlagBits::e1);
-    p_cmd.setCullModeEXT(CullModeFlagBits::eNone);
-    p_cmd.setDepthWriteEnableEXT(False);
-    p_cmd.setVertexInputEXT({}, {});
-    p_cmd.setPrimitiveTopology(PrimitiveTopology::eTriangleList);
-    p_cmd.setPrimitiveRestartEnable(False);
-    p_cmd.setSampleMaskEXT(SampleCountFlagBits::e1, 1);
-    p_cmd.setAlphaToCoverageEnableEXT(False);
-    p_cmd.setPolygonModeEXT(PolygonMode::eFill);
-    p_cmd.setFrontFace(FrontFace::eCounterClockwise);
-    p_cmd.setDepthTestEnable(True);
-    p_cmd.setDepthCompareOp(CompareOp::eGreaterOrEqual);
-    p_cmd.setDepthBoundsTestEnableEXT(False);
-    p_cmd.setStencilTestEnable(False);
-    p_cmd.setDepthBiasEnableEXT(False);
-
-    p_cmd.setLogicOpEnableEXT(False);
-    p_cmd.setColorBlendEnableEXT(0, {False});
-    p_cmd.setColorWriteMaskEXT(0, { ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA });
-
+    skybox_shader.bind(p_cmd);
     p_cmd.draw(36, 1, 0, 0);
     p_cmd.endRendering();
 }
@@ -1230,6 +1295,17 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
     gStats.mesh_draw_time = elapsed.count() / 1000.0f;
 }
 
+void Renderer::draw_lighting(CommandBuffer p_cmd) {
+    DescriptorSet lighting_descriptor = get_current_frame().descriptors.allocate(device, storage_image_descriptor_layout);
+    DescriptorWriter writer {};
+    writer.write_image(0, draw_image.image_view, VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
+    writer.write_image(1, storage_image.image_view, VK_NULL_HANDLE, ImageLayout::eGeneral, DescriptorType::eStorageImage);
+    writer.update_set(device, lighting_descriptor);
+    
+    p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, lighting_shader.layout, 0, 1, &lighting_descriptor, 0, nullptr);
+    lighting_shader.bind(p_cmd);
+    p_cmd.dispatch(std::ceil(draw_extent.width / 16.0f), std::ceil(draw_extent.height / 16.0f), 1);
+}
 
 void Renderer::draw_imgui(CommandBuffer p_cmd, ImageView p_target_image_view) {
     RenderingAttachmentInfo color_attachment {
@@ -1280,15 +1356,24 @@ void Renderer::draw() {
 
     transition_image(cmd, draw_image.image, ImageLayout::eUndefined, ImageLayout::eColorAttachmentOptimal);
     transition_image(cmd, depth_image.image, ImageLayout::eUndefined, ImageLayout::eDepthAttachmentOptimal);
+    transition_image(cmd, storage_image.image, ImageLayout::eUndefined, ImageLayout::eGeneral);
     
+    cmd.setRasterizationSamplesEXT(gSamples);
+    cmd.setSampleMaskEXT(gSamples, { 0xffffffff });
     draw_geometry(cmd);
     draw_skybox(cmd);
 
-    transition_image(cmd, draw_image.image, ImageLayout::eColorAttachmentOptimal, ImageLayout::eTransferSrcOptimal);
+    transition_image(cmd, draw_image.image, ImageLayout::eColorAttachmentOptimal, ImageLayout::eShaderReadOnlyOptimal);
+    
+    cmd.setRasterizationSamplesEXT(SampleCountFlagBits::e1);
+    cmd.setSampleMaskEXT(SampleCountFlagBits::e1, { 0xffffffff });
+    draw_lighting(cmd);
+    
+    transition_image(cmd, storage_image.image, ImageLayout::eGeneral, ImageLayout::eTransferSrcOptimal);
     transition_image(cmd, swapchain_images[swapchain_image_index], ImageLayout::eUndefined, ImageLayout::eTransferDstOptimal);
     
     // Copy draw image to swapchain
-    copy_image_to_image(cmd, draw_image.image, swapchain_images[swapchain_image_index], draw_extent, viewport_size);
+    copy_image_to_image(cmd, storage_image.image, swapchain_images[swapchain_image_index], draw_extent, viewport_size);
     transition_image(cmd, swapchain_images[swapchain_image_index], ImageLayout::eTransferDstOptimal, ImageLayout::eColorAttachmentOptimal);
     draw_imgui(cmd, swapchain_image_views[swapchain_image_index]);
     transition_image(cmd, swapchain_images[swapchain_image_index], ImageLayout::eColorAttachmentOptimal, ImageLayout::ePresentSrcKHR);
