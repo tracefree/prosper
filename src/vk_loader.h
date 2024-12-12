@@ -13,7 +13,7 @@ class Renderer;
 
 //std::optional<std::vector<std::shared_ptr<MeshAsset>>> load_gltf_meshes(Renderer* p_renderer, std::filesystem::path p_file_path);
 
-std::optional<AllocatedImage> load_image(Renderer* p_renderer, std::filesystem::path p_file_path);
+
 
 struct LoadedGLTF : public IRenderable {
     std::unordered_map<std::string, std::shared_ptr<MeshAsset>> meshes;
@@ -36,4 +36,5 @@ private:
 };
 
 std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer, std::filesystem::path p_file_path);
-std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& p_asset, fastgltf::Image& p_image);
+std::optional<AllocatedImage> load_image(Renderer* p_renderer, std::filesystem::path p_file_path, Format p_format = Format::eR8G8B8A8Unorm);
+std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& p_asset, fastgltf::Image& p_image, Format p_format = Format::eR8G8B8A8Unorm);

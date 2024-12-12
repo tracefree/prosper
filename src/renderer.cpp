@@ -412,8 +412,8 @@ bool Renderer::create_lighting_shader() {
         .codeSize = lighting_spv_sizeInBytes,
         .pCode = lighting_spv,
         .pName = "compute",
-        .setLayoutCount = 1,
-        .pSetLayouts = &storage_image_descriptor_layout,
+        .setLayoutCount = 2,
+        .pSetLayouts = layouts,
     };
 
     auto lighting_shader_result = device.createShaderEXT(compute_shader_info);
@@ -513,17 +513,16 @@ bool Renderer::create_descriptors() {
 
     {
         DescriptorLayoutBuilder builder;
-        builder.add_binding(0, DescriptorType::eUniformBuffer); // Scene data
-        builder.add_binding(1, DescriptorType::eSampledImage);  // Input depth_image
-        builder.add_binding(2, DescriptorType::eSampledImage);  // Input gbuffer_albedo
-        builder.add_binding(3, DescriptorType::eSampledImage);  // Input gbuffer_normal
-        builder.add_binding(4, DescriptorType::eStorageImage);  // Output storage image
+        builder.add_binding(0, DescriptorType::eSampledImage);  // Input depth_image
+        builder.add_binding(1, DescriptorType::eSampledImage);  // Input gbuffer_albedo
+        builder.add_binding(2, DescriptorType::eSampledImage);  // Input gbuffer_normal
+        builder.add_binding(3, DescriptorType::eStorageImage);  // Output storage image
         storage_image_descriptor_layout = builder.build(device, ShaderStageFlagBits::eCompute);
     }
 
     DescriptorLayoutBuilder builder;
     builder.add_binding(0, DescriptorType::eUniformBuffer);
-    scene_data_descriptor_layout = builder.build(device, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment);
+    scene_data_descriptor_layout = builder.build(device, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment | ShaderStageFlagBits::eCompute);
 
     {
         DescriptorLayoutBuilder builder;
@@ -1326,15 +1325,15 @@ void Renderer::draw_lighting(CommandBuffer p_cmd) {
     DescriptorSet lighting_descriptor = get_current_frame().descriptors.allocate(device, storage_image_descriptor_layout);
     {
         DescriptorWriter writer {};
-        writer.write_buffer(0, scene_data_buffer.buffer, sizeof(GPUSceneData), 0, DescriptorType::eUniformBuffer);
-        writer.write_image(1, depth_image.image_view,       VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
-        writer.write_image(2, gbuffer_albedo.image_view,    VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
-        writer.write_image(3, gbuffer_normal.image_view,    VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
-        writer.write_image(4, storage_image.image_view,     VK_NULL_HANDLE, ImageLayout::eGeneral,               DescriptorType::eStorageImage);
+        writer.write_image(0, depth_image.image_view,       VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
+        writer.write_image(1, gbuffer_albedo.image_view,    VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
+        writer.write_image(2, gbuffer_normal.image_view,    VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
+        writer.write_image(3, storage_image.image_view,     VK_NULL_HANDLE, ImageLayout::eGeneral,               DescriptorType::eStorageImage);
         writer.update_set(device, lighting_descriptor);
     }
     DescriptorSet sets[] = {global_descriptor, lighting_descriptor};
     p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, lighting_shader.layout, 0, 2, sets, 0, nullptr);
+    //p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, lighting_shader.layout, 1, 1, &lighting_descriptor, 0, nullptr);
     lighting_shader.bind(p_cmd);
     p_cmd.dispatch(std::ceil(draw_extent.width / 16.0f), std::ceil(draw_extent.height / 16.0f), 1);
 }

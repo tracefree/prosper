@@ -119,38 +119,23 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
         file.samplers.push_back(new_sampler);
     }
 
-    std::vector<AllocatedImage> temp_textures;
+    std::vector<std::optional<AllocatedImage>> temp_textures;
     std::vector<std::shared_ptr<MaterialInstance>> temp_materials;
     std::vector<std::shared_ptr<MeshAsset>> temp_meshes;
     std::vector<std::shared_ptr<Node>> temp_nodes;
     
 
     // Textures
+    // Only load texture when first used in a material so we can select correct format (sRGB or linear) based on usage.
+    temp_textures.resize(asset.images.size());
 
-    uint32_t texture_index {0};
-    for (fastgltf::Image& image : asset.images) {
-        std::optional<AllocatedImage> new_image = load_image(p_renderer, asset, image);
-
-        if (new_image.has_value()) {
-            temp_textures.push_back(*new_image);
-            std::string texture_id = std::to_string(texture_index);
-            file.textures[texture_id.c_str()] = *new_image;
-        } else {
-            temp_textures.push_back(p_renderer->image_error);
-            print("Failed to load texture: %s", image.name.c_str());
-        }
-
-        texture_index++;
-    }
-
+    // Materials
     file.material_data_buffer = p_renderer->create_buffer(
         sizeof(MaterialMetallicRoughness::MaterialConstants) * asset.materials.size(),
         BufferUsageFlagBits::eUniformBuffer,
         VMA_MEMORY_USAGE_CPU_TO_GPU
     );
-
-    // Materials
-
+    
     uint32_t data_index = 0;
     MaterialMetallicRoughness::MaterialConstants* scene_material_constants = (MaterialMetallicRoughness::MaterialConstants*) file.material_data_buffer.info.pMappedData;
 
@@ -194,7 +179,12 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
             size_t image_index   = asset.textures[temp_material.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
             size_t sampler_index = asset.textures[temp_material.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
 
-            material_resources.albedo_texture = temp_textures[image_index];
+            if (!temp_textures[image_index].has_value()) {
+                temp_textures[image_index] = load_image(p_renderer, asset, asset.images[image_index], Format::eR8G8B8A8Srgb);
+                std::string texture_id = std::to_string(image_index);
+                file.textures[texture_id.c_str()] = *temp_textures[image_index];
+            }
+            material_resources.albedo_texture = temp_textures[image_index].value_or(p_renderer->image_error);
             material_resources.albedo_sampler = file.samplers[sampler_index];
         }
 
@@ -202,16 +192,25 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
             size_t image_index   = asset.textures[temp_material.normalTexture.value().textureIndex].imageIndex.value();
             size_t sampler_index = asset.textures[temp_material.normalTexture.value().textureIndex].samplerIndex.value();
 
-            material_resources.normal_texture = temp_textures[image_index];
+            if (!temp_textures[image_index].has_value()) {
+                temp_textures[image_index] = load_image(p_renderer, asset, asset.images[image_index]);
+                std::string texture_id = std::to_string(image_index);
+                file.textures[texture_id.c_str()] = *temp_textures[image_index];
+            }
+            material_resources.normal_texture = temp_textures[image_index].value_or(p_renderer->image_default_normal);
             material_resources.normal_sampler = file.samplers[sampler_index];
         }
 
         if (temp_material.packedNormalMetallicRoughnessTexture.has_value()) {
-            print("Has metal roughness");
             size_t image_index   = asset.textures[temp_material.packedNormalMetallicRoughnessTexture.value().textureIndex].imageIndex.value();
             size_t sampler_index = asset.textures[temp_material.packedNormalMetallicRoughnessTexture.value().textureIndex].samplerIndex.value();
 
-            material_resources.metal_roughness_texture = temp_textures[image_index];
+            if (!temp_textures[image_index].has_value()) {
+                temp_textures[image_index] = load_image(p_renderer, asset, asset.images[image_index]);
+                std::string texture_id = std::to_string(image_index);
+                file.textures[texture_id.c_str()] = *temp_textures[image_index];
+            }
+            material_resources.metal_roughness_texture = temp_textures[image_index].value_or(p_renderer->image_black);
             material_resources.metal_roughness_sampler = file.samplers[sampler_index];
         }
 
@@ -376,7 +375,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
 }
 
 
-std::optional<AllocatedImage> load_image(Renderer* p_renderer, std::filesystem::path p_file_path) {
+std::optional<AllocatedImage> load_image(Renderer* p_renderer, std::filesystem::path p_file_path, Format p_format) {
     AllocatedImage new_image {};
 
     int w, h, nrChannels;
@@ -386,7 +385,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, std::filesystem::
 }
 
 
-std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& p_asset, fastgltf::Image& p_image) {
+std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& p_asset, fastgltf::Image& p_image, Format p_format) {
     // TODO: Detect normal map and choose format accordingly
     AllocatedImage new_image {};
     int width, height, number_channels;
@@ -398,14 +397,17 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                 assert(file_path.uri.isLocalPath());
                 // TODO: find correct folder for texture assets relative to gltf file instead of hardcoding
                 auto full_path = std::string("../../assets/models/Sponza/glTF/") + file_path.uri.c_str();
+                
                 unsigned char* data = stbi_load(full_path.c_str(), &width, &height, &number_channels, 4);
+                
                 if (data) {
                     Extent3D image_size {
                         .width  = uint32_t(width),
                         .height = uint32_t(height),
                         .depth  = 1,
                     };
-                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, true);
+                    
+                    new_image = p_renderer->create_image(data, image_size, p_format, ImageUsageFlagBits::eSampled, true);
                     stbi_image_free(data);
                 }
             },
@@ -417,7 +419,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                         .height = uint32_t(height),
                         .depth  = 1,
                     };
-                    new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, true);
+                    new_image = p_renderer->create_image(data, image_size, p_format, ImageUsageFlagBits::eSampled, true);
                     stbi_image_free(data);
                 }
             },
@@ -436,7 +438,7 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
                                     .height = uint32_t(height),
                                     .depth  = 1,
                                 };
-                                new_image = p_renderer->create_image(data, image_size, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled, true);
+                                new_image = p_renderer->create_image(data, image_size, p_format, ImageUsageFlagBits::eSampled, true);
                                 stbi_image_free(data);
                             }
                         }
