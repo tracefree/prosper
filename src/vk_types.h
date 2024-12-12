@@ -42,7 +42,6 @@ struct GPUMeshBuffers {
 struct GPUDrawPushConstants {
     Mat4 model_matrix;
     DeviceAddress vertex_buffer_address;
-    uint32_t flags;
 };
 
 struct GPUSceneData {
@@ -52,6 +51,11 @@ struct GPUSceneData {
     Vec4 ambient_color;
     Vec4 sunlight_direction;
     Vec4 sunlight_color;
+};
+
+struct LightingPassPushConstants {
+    uint32_t flags;
+    float white_point;
 };
 
 enum class MaterialPass : uint8_t {

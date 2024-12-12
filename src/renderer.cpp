@@ -390,6 +390,13 @@ bool Renderer::create_skybox_shader() {
 }
 
 bool Renderer::create_lighting_shader() {
+
+    PushConstantRange lighting_pass_push_constants {
+        .stageFlags = ShaderStageFlagBits::eCompute,
+        .offset = 0,
+        .size = sizeof(LightingPassPushConstants),
+    };
+
     DescriptorSetLayout layouts[] = {
         scene_data_descriptor_layout,
         storage_image_descriptor_layout
@@ -398,6 +405,8 @@ bool Renderer::create_lighting_shader() {
     PipelineLayoutCreateInfo layout_info {
         .setLayoutCount = 2,
         .pSetLayouts = layouts,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &lighting_pass_push_constants,
     };
 
     auto pipeline_layout_result = device.createPipelineLayout(layout_info);
@@ -414,6 +423,8 @@ bool Renderer::create_lighting_shader() {
         .pName = "compute",
         .setLayoutCount = 2,
         .pSetLayouts = layouts,
+        .pushConstantRangeCount = 1,
+        .pPushConstantRanges = &lighting_pass_push_constants,
     };
 
     auto lighting_shader_result = device.createShaderEXT(compute_shader_info);
@@ -1278,10 +1289,11 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
             p_cmd.bindIndexBuffer(render_object.index_buffer, 0, IndexType::eUint32);
         }
         
-        GPUDrawPushConstants push_constants;
-        push_constants.vertex_buffer_address = render_object.vertex_buffer_address;
-        push_constants.model_matrix = render_object.transform;
-        push_constants.flags = flags;
+        GPUDrawPushConstants push_constants {
+            .model_matrix = render_object.transform,
+            .vertex_buffer_address = render_object.vertex_buffer_address,
+        };
+        
         p_cmd.pushConstants(render_object.material->shader->layout, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment, 0, sizeof(GPUDrawPushConstants), &push_constants);
 
         p_cmd.drawIndexed(render_object.index_count, 1, render_object.first_index, 0, 0);
@@ -1335,6 +1347,13 @@ void Renderer::draw_lighting(CommandBuffer p_cmd) {
     p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, lighting_shader.layout, 0, 2, sets, 0, nullptr);
     //p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, lighting_shader.layout, 1, 1, &lighting_descriptor, 0, nullptr);
     lighting_shader.bind(p_cmd);
+
+    LightingPassPushConstants push_constants {
+        .flags = flags,
+        .white_point = white_point,
+    };
+    p_cmd.pushConstants(lighting_shader.layout, ShaderStageFlagBits::eCompute, 0, sizeof(LightingPassPushConstants), &push_constants);
+
     p_cmd.dispatch(std::ceil(draw_extent.width / 16.0f), std::ceil(draw_extent.height / 16.0f), 1);
 }
 
@@ -1467,7 +1486,7 @@ void Renderer::update_scene() {
     scene_data.view = gCamera.get_view_matrix();
     scene_data.projection = glm::perspective(glm::radians(70.0f), (float)draw_extent.width / (float)draw_extent.height, 1000.0f, 0.1f);
     scene_data.projection[1][1] *= -1.0f;
-
+ 
     scene_data.view_projection = scene_data.projection * scene_data.view;
 
     scene_data.ambient_color = Vec4(0.1f, 0.1f, 0.1f, 0.0f);

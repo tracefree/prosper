@@ -187,6 +187,7 @@ public:
     std::vector<ComputeEffect> background_effects;
     int current_background_effect {0};
     uint32_t flags {0};
+    float white_point {1.0f};
     bool resize_requested {false};
     GPUSceneData scene_data;
     DescriptorSetLayout scene_data_descriptor_layout;

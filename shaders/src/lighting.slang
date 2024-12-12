@@ -1,4 +1,5 @@
 #include "input_structures.slang"
+#include "common/render_flags.h"
 
 uniform SceneData scene_data;
 
@@ -11,10 +12,25 @@ struct LightingParameters {
 
 ParameterBlock<LightingParameters> lighting_params;
 
-func calculate_illumination(float3 albedo, float3 normal)->float4 {
+struct Push {
+    uint flags = 0;
+    float white_point = 1.0;
+}
+
+[[vk::push_constant]]
+ConstantBuffer<Push> push_constants;
+
+
+func calculate_illumination(float3 albedo, float3 normal) -> float3 {
     let light_value = max(dot(normal, scene_data.sunlight_direction.xyz), 0.0);
     let ambient = albedo * scene_data.ambient_color.rgb;
-    return float4(albedo * light_value * scene_data.sunlight_color.w + ambient, 1.0);
+    return albedo * light_value * scene_data.sunlight_color.w + ambient;
+}
+
+func tonemap_reinhard(float3 color, float white_point)->float3 {
+    float luminance = dot(float3(0.2126, 0.7152, 0.0722), color);
+    float tonemapped_luminance = (1.0 + luminance / (white_point * white_point)) / (1.0 + luminance);
+    return color * tonemapped_luminance;
 }
 
 [shader("compute")]
@@ -32,13 +48,20 @@ void compute(
     // Currently lighting is calculated for each subsample, defeating the purpose of MSAA.
     // TODO: Detect complex pixels and supersample only those.
     if (texel_coord.x < size.x && texel_coord.y < size.y) {
-        float4 color = float4(0.0);
+        float4 color = float4(0.0, 0.0, 0.0, 1.0);
         for (int sample_id = 0; sample_id < sample_count; sample_id++) {
             let albedo = lighting_params.color_image.Load(texel_coord, sample_id).rgb;
             let normal = lighting_params.normal_image.Load(texel_coord, sample_id).xyz;
-            color += calculate_illumination(albedo, normal);
+
+            if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_NORMALS) > 0) {
+                color.rgb += normal * 0.5 + 0.5;
+            } else {
+                color.rgb += calculate_illumination(albedo, normal);
+            }
         }
-        color /= float(sample_count);
+        color.rgb /= float(sample_count);
+
+        color.rgb = tonemap_reinhard(color.rgb, push_constants.white_point);
         lighting_params.storage_image[texel_coord] = color;
     }
 }

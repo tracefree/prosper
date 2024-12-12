@@ -103,6 +103,8 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
         ImGui::CheckboxFlags("Show normals",   &gRenderer.flags, RENDER_FLAG_BIT_SHOW_NORMALS);
         ImGui::CheckboxFlags("Show metallic",  &gRenderer.flags, RENDER_FLAG_BIT_SHOW_METAL);
         ImGui::CheckboxFlags("Show roughness", &gRenderer.flags, RENDER_FLAG_BIT_SHOW_ROUGHNESS);
+
+        ImGui::SliderFloat("White point", &gRenderer.white_point, 0.1f, 10.0f);
     }
     ImGui::End();
 

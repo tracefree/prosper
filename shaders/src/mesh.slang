@@ -20,7 +20,6 @@ struct VSOutput {
 struct Push {
     float4x4 model_matrix;
     Vertex *vertices;
-    uint32_t flags;
 }
 
 uniform SceneData scene_data;
@@ -77,7 +76,7 @@ FSOutput fragment(
     if (albedo_texture_sample.a < 0.5) {
         discard;
     }
-    let albedo = color.rgb * albedo_texture_sample.rgb; // * pow(albedo_texture_sample.rgb, 2.2);
+    let albedo = color.rgb * albedo_texture_sample.rgb;
 
     let normal_texture_sample = fragment_params.normal_texture.Sample(uv).xyz;
     var normal_ts = normal_texture_sample * 2.0 - 1.0;

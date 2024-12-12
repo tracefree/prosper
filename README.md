@@ -17,7 +17,7 @@ Based on [vkguide.dev](https://vkguide.dev), with the main differences being tha
 - [x] Deffered rendering
 - [ ] Skeletal animation
 - [ ] Integrating a physics engine
-- [ ] HDR with tonemapping
+- [x] HDR with tonemapping
 - [ ] Bloom
 - [x] MSAA
 - [ ] SSAO
