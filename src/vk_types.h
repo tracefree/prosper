@@ -41,10 +41,11 @@ struct GPUMeshBuffers {
 
 struct GPUDrawPushConstants {
     Mat4 model_matrix;
+    Mat4 view_projection;
     DeviceAddress vertex_buffer_address;
 };
 
-struct GPUSceneData {
+struct SceneLightsData {
     Mat4 view;
     Mat4 projection;
     Mat4 view_projection;

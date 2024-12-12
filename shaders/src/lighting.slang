@@ -1,7 +1,7 @@
 #include "input_structures.slang"
 #include "common/render_flags.h"
 
-uniform SceneData scene_data;
+uniform SceneLightsData scene_data;
 
 struct LightingParameters {
     Texture2DMS<float> depth_image;

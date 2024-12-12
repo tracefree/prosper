@@ -189,7 +189,7 @@ public:
     uint32_t flags {0};
     float white_point {1.0f};
     bool resize_requested {false};
-    GPUSceneData scene_data;
+    SceneLightsData scene_data;
     DescriptorSetLayout scene_data_descriptor_layout;
 
     MaterialInstance default_material {};

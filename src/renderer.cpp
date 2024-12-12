@@ -533,7 +533,7 @@ bool Renderer::create_descriptors() {
 
     DescriptorLayoutBuilder builder;
     builder.add_binding(0, DescriptorType::eUniformBuffer);
-    scene_data_descriptor_layout = builder.build(device, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment | ShaderStageFlagBits::eCompute);
+    scene_data_descriptor_layout = builder.build(device, ShaderStageFlagBits::eCompute);
 
     {
         DescriptorLayoutBuilder builder;
@@ -1209,18 +1209,6 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
         }
     );
 
-    AllocatedBuffer scene_data_buffer = create_buffer(sizeof(GPUSceneData), BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    get_current_frame().deletion_queue.push_function([=, this]() {
-        destroy_buffer(scene_data_buffer);
-    });
-
-    GPUSceneData* scene_uniform_data = (GPUSceneData*) scene_data_buffer.info.pMappedData;
-    *scene_uniform_data = scene_data;
-    DescriptorSet global_descriptor = get_current_frame().descriptors.allocate(device, scene_data_descriptor_layout);
-    DescriptorWriter writer {};
-    writer.write_buffer(0, scene_data_buffer.buffer, sizeof(GPUSceneData), 0, DescriptorType::eUniformBuffer);
-    writer.update_set(device, global_descriptor);
-
     RenderingAttachmentInfo color_attachment_albedo {
         .imageView   = gbuffer_albedo.image_view,
         .imageLayout = ImageLayout::eColorAttachmentOptimal,
@@ -1278,10 +1266,9 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
                 render_object.material->shader->bind(p_cmd);
                 p_cmd.setColorBlendEnableEXT(0, {False, False});
                 p_cmd.setColorWriteMaskEXT(0, { ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA, ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA });
-                p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, render_object.material->shader->layout, 0, 1, &global_descriptor, 0, nullptr);
             }
 
-            p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, render_object.material->shader->layout, 1, 1, &render_object.material->material_set, 0, nullptr);
+            p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, render_object.material->shader->layout, 0, 1, &render_object.material->material_set, 0, nullptr);
         }
 
         if (render_object.index_buffer != previous_index_buffer) {
@@ -1291,6 +1278,7 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
         
         GPUDrawPushConstants push_constants {
             .model_matrix = render_object.transform,
+            .view_projection = scene_data.view_projection,
             .vertex_buffer_address = render_object.vertex_buffer_address,
         };
         
@@ -1318,20 +1306,18 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
 }
 
 void Renderer::draw_lighting(CommandBuffer p_cmd) {
-    
-    // TODO: Separate scene data into what's needed for first and second gbuffer passes, don't ubpload data twice
-    AllocatedBuffer scene_data_buffer = create_buffer(sizeof(GPUSceneData), BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    AllocatedBuffer scene_data_buffer = create_buffer(sizeof(SceneLightsData), BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
     get_current_frame().deletion_queue.push_function([=, this]() {
         destroy_buffer(scene_data_buffer);
     });
 
-    GPUSceneData* scene_uniform_data = (GPUSceneData*) scene_data_buffer.info.pMappedData;
+    SceneLightsData* scene_uniform_data = (SceneLightsData*) scene_data_buffer.info.pMappedData;
     *scene_uniform_data = scene_data;
 
     DescriptorSet global_descriptor = get_current_frame().descriptors.allocate(device, scene_data_descriptor_layout);
     {
         DescriptorWriter writer {};
-        writer.write_buffer(0, scene_data_buffer.buffer, sizeof(GPUSceneData), 0, DescriptorType::eUniformBuffer);
+        writer.write_buffer(0, scene_data_buffer.buffer, sizeof(SceneLightsData), 0, DescriptorType::eUniformBuffer);
         writer.update_set(device, global_descriptor);
     }
     DescriptorSet lighting_descriptor = get_current_frame().descriptors.allocate(device, storage_image_descriptor_layout);
@@ -1345,7 +1331,6 @@ void Renderer::draw_lighting(CommandBuffer p_cmd) {
     }
     DescriptorSet sets[] = {global_descriptor, lighting_descriptor};
     p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, lighting_shader.layout, 0, 2, sets, 0, nullptr);
-    //p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, lighting_shader.layout, 1, 1, &lighting_descriptor, 0, nullptr);
     lighting_shader.bind(p_cmd);
 
     LightingPassPushConstants push_constants {
@@ -1514,15 +1499,11 @@ void MaterialMetallicRoughness::build_shaders(Renderer* p_renderer) {
     layout_builder.add_binding(2, DescriptorType::eCombinedImageSampler);
     layout_builder.add_binding(3, DescriptorType::eCombinedImageSampler);
 
-    material_layout = layout_builder.build(p_renderer->device, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment);
-    DescriptorSetLayout layouts[] = {
-        p_renderer->scene_data_descriptor_layout,
-        material_layout
-    };
+    material_layout = layout_builder.build(p_renderer->device, ShaderStageFlagBits::eFragment);
 
     PipelineLayoutCreateInfo mesh_layout_info {
-        .setLayoutCount = 2,
-        .pSetLayouts = layouts,
+        .setLayoutCount = 1,
+        .pSetLayouts = &material_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &matrix_range,
     };
@@ -1554,8 +1535,8 @@ void MaterialMetallicRoughness::build_shaders(Renderer* p_renderer) {
         .codeSize = mesh_spv_sizeInBytes,
         .pCode = mesh_spv,
         .pName = "vertex",
-        .setLayoutCount = 2,
-        .pSetLayouts = layouts,
+        .setLayoutCount = 1,
+        .pSetLayouts = &material_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &matrix_range,
     };
