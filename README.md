@@ -14,7 +14,7 @@ Based on [vkguide.dev](https://vkguide.dev), with the main differences being tha
 - [ ] Implement `VK_LAYER_KHRONOS_shader_object` to remove reliance on `VK_EXT_shader_object`
 - [x] Normal mapping
 - [ ] GPU driven rendering
-- [ ] Deffered rendering
+- [x] Deffered rendering
 - [ ] Skeletal animation
 - [ ] Integrating a physics engine
 - [ ] HDR with tonemapping

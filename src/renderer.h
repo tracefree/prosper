@@ -177,7 +177,8 @@ public:
     DrawContext draw_context;
     std::unordered_map<std::string, std::shared_ptr<Node>> nodes;
 
-    AllocatedImage draw_image {};
+    AllocatedImage gbuffer_albedo {};
+    AllocatedImage gbuffer_normal {};
     AllocatedImage depth_image {};
     Extent2D draw_extent;
 

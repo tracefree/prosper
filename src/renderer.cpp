@@ -79,13 +79,11 @@ bool Renderer::create_device() {
         }
         graphics_queue_index++;
     }
-    //graphics_queue_index += 1;
     
     const float priority = 1.0f;
     std::vector<const char*> enabled_extensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_EXT_SHADER_OBJECT_EXTENSION_NAME,
-   //     VK_NV_COMPUTE_SHADER_DERIVATIVES_EXTENSION_NAME,
     };
     DeviceQueueCreateInfo queue_create_info {
         .queueFamilyIndex = graphics_queue_index,
@@ -95,24 +93,21 @@ bool Renderer::create_device() {
     PhysicalDeviceFeatures features {
         .shaderStorageImageMultisample = True,
     };
-    PhysicalDeviceComputeShaderDerivativesFeaturesNV compute_shader_derivatives_features {
-    //    .computeDerivativeGroupQuads = True,
-    };
+
     PhysicalDeviceShaderObjectFeaturesEXT shader_object_extension {
-    //    .pNext = &compute_shader_derivatives_features,
         .shaderObject = True,
     };
-    PhysicalDeviceBufferDeviceAddressFeatures buffer_device_address_features {
-        .pNext = &shader_object_extension,
-        .bufferDeviceAddress = True,
-    };
     PhysicalDeviceVulkan13Features features13 {
-        .pNext = &buffer_device_address_features,
+        .pNext = &shader_object_extension,
         .synchronization2 = True,
         .dynamicRendering = True,
     };
-    PhysicalDeviceFeatures2 features2 {
+    PhysicalDeviceVulkan12Features features12 {
         .pNext = &features13,
+        .bufferDeviceAddress = True,
+    };
+    PhysicalDeviceFeatures2 features2 {
+        .pNext = &features12,
         .features = features,
     };
     
@@ -182,14 +177,14 @@ bool Renderer::create_draw_image() {
         .depth  = 1,
     };
 
-    // Color
-    draw_image.image_format = Format::eR16G16B16A16Sfloat;
-    draw_image.image_extent = draw_image_extent;
+    // Albedo
+    gbuffer_albedo.image_format = Format::eR8G8B8A8Snorm;
+    gbuffer_albedo.image_extent = draw_image_extent;
 
-    ImageUsageFlags draw_image_usages = ImageUsageFlagBits::eColorAttachment | ImageUsageFlagBits::eSampled | ImageUsageFlagBits::eInputAttachment;
+    ImageUsageFlags draw_image_usages = ImageUsageFlagBits::eColorAttachment | ImageUsageFlagBits::eSampled;
     ImageCreateInfo image_info {
         .imageType   = ImageType::e2D,
-        .format      = draw_image.image_format,
+        .format      = gbuffer_albedo.image_format,
         .extent      = draw_image_extent,
         .mipLevels   = 1,
         .arrayLayers = 1,
@@ -203,15 +198,15 @@ bool Renderer::create_draw_image() {
         .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
     
-    VkResult creation_result = vmaCreateImage(allocator, (VkImageCreateInfo*)&image_info, &image_alloc_info, (VkImage_T**) &draw_image.image, &draw_image.allocation, nullptr);
+    VkResult creation_result = vmaCreateImage(allocator, (VkImageCreateInfo*)&image_info, &image_alloc_info, (VkImage_T**) &gbuffer_albedo.image, &gbuffer_albedo.allocation, nullptr);
     if (creation_result != VK_SUCCESS) {
         return false;
     }
 
     ImageViewCreateInfo view_info {
-        .image      = draw_image.image,
+        .image      = gbuffer_albedo.image,
         .viewType   = ImageViewType::e2D,
-        .format     = draw_image.image_format,
+        .format     = gbuffer_albedo.image_format,
         .subresourceRange = ImageSubresourceRange {
             .aspectMask     = ImageAspectFlagBits::eColor,
             .baseMipLevel   = 0,
@@ -221,23 +216,33 @@ bool Renderer::create_draw_image() {
         }
     };
     Result result;
-    std::tie(result, draw_image.image_view) = device.createImageView(view_info);
+    std::tie(result, gbuffer_albedo.image_view) = device.createImageView(view_info);
+
+    // Normal
+    gbuffer_normal.image_format = Format::eR8G8B8A8Snorm;
+    gbuffer_normal.image_extent = draw_image_extent;
+    creation_result = vmaCreateImage(allocator, (VkImageCreateInfo*)&image_info, &image_alloc_info, (VkImage_T**) &gbuffer_normal.image, &gbuffer_normal.allocation, nullptr);
+    if (creation_result != VK_SUCCESS) {
+        return false;
+    }
+    view_info.image = gbuffer_normal.image;
+    std::tie(result, gbuffer_normal.image_view) = device.createImageView(view_info);
     
     // Depth
     depth_image.image_format = Format::eD32Sfloat;
-    depth_image.image_extent = draw_image.image_extent;
-    ImageUsageFlags depth_image_usages {ImageUsageFlagBits::eDepthStencilAttachment};
+    depth_image.image_extent = gbuffer_albedo.image_extent;
     image_info.format = depth_image.image_format;
-    image_info.usage  = depth_image_usages;
+    image_info.usage  = ImageUsageFlagBits::eDepthStencilAttachment | ImageUsageFlagBits::eSampled;
     creation_result = vmaCreateImage(allocator, (VkImageCreateInfo*)&image_info, &image_alloc_info, (VkImage_T**) &depth_image.image, &depth_image.allocation, nullptr);
     
-    view_info.image = depth_image.image;
-    view_info.format = depth_image.image_format;
-    view_info.subresourceRange.aspectMask = ImageAspectFlagBits::eDepth;
-    std::tie(result, depth_image.image_view) = device.createImageView(view_info);
+    ImageViewCreateInfo depth_image_view_info = view_info;
+    depth_image_view_info.image = depth_image.image;
+    depth_image_view_info.format = depth_image.image_format;
+    depth_image_view_info.subresourceRange.aspectMask = ImageAspectFlagBits::eDepth;
+    std::tie(result, depth_image.image_view) = device.createImageView(depth_image_view_info);
 
     // Storage
-    storage_image.image_format = Format::eR8G8B8A8Snorm;
+    storage_image.image_format = Format::eR8G8B8A8Unorm;
     storage_image.image_extent = draw_image_extent;
 
     ImageCreateInfo storage_image_info = image_info;
@@ -257,8 +262,11 @@ bool Renderer::create_draw_image() {
     
     // Cleanup
     deletion_queue.push_function([this]() {
-        vmaDestroyImage(allocator, draw_image.image, draw_image.allocation);
-        device.destroyImageView(draw_image.image_view);
+        vmaDestroyImage(allocator, gbuffer_albedo.image, gbuffer_albedo.allocation);
+        device.destroyImageView(gbuffer_albedo.image_view);
+
+        vmaDestroyImage(allocator, gbuffer_normal.image, gbuffer_normal.allocation);
+        device.destroyImageView(gbuffer_normal.image_view);
 
         vmaDestroyImage(allocator, depth_image.image, depth_image.allocation);
         device.destroyImageView(depth_image.image_view);
@@ -334,7 +342,6 @@ bool Renderer::create_skybox_shader() {
 
     PipelineLayoutCreateInfo layout_info {
         .setLayoutCount = 0,
-       // .pSetLayouts    = &draw_image_descriptor_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constants,
     };
@@ -354,8 +361,6 @@ bool Renderer::create_skybox_shader() {
         .codeSize = skybox_spv_sizeInBytes,
         .pCode = skybox_spv,
         .pName = "vertex",
-     //   .setLayoutCount = 1,
-     //   .pSetLayouts = &draw_image_descriptor_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constants,
     };
@@ -385,9 +390,14 @@ bool Renderer::create_skybox_shader() {
 }
 
 bool Renderer::create_lighting_shader() {
+    DescriptorSetLayout layouts[] = {
+        scene_data_descriptor_layout,
+        storage_image_descriptor_layout
+    };
+
     PipelineLayoutCreateInfo layout_info {
-        .setLayoutCount = 1,
-        .pSetLayouts = &storage_image_descriptor_layout,
+        .setLayoutCount = 2,
+        .pSetLayouts = layouts,
     };
 
     auto pipeline_layout_result = device.createPipelineLayout(layout_info);
@@ -502,22 +512,14 @@ bool Renderer::create_descriptors() {
     global_descriptor_allocator.init_pool(device, 10, sizes);
 
     {
-       // DescriptorLayoutBuilder builder;
-       // builder.add_binding(0, DescriptorType::eInp);
-       // draw_image_descriptor_layout = builder.build(device, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment);
-    }
-    {
         DescriptorLayoutBuilder builder;
-        builder.add_binding(0, DescriptorType::eSampledImage); // Input draw_image
-        builder.add_binding(1, DescriptorType::eStorageImage); // Output storage image
+        builder.add_binding(0, DescriptorType::eUniformBuffer); // Scene data
+        builder.add_binding(1, DescriptorType::eSampledImage);  // Input depth_image
+        builder.add_binding(2, DescriptorType::eSampledImage);  // Input gbuffer_albedo
+        builder.add_binding(3, DescriptorType::eSampledImage);  // Input gbuffer_normal
+        builder.add_binding(4, DescriptorType::eStorageImage);  // Output storage image
         storage_image_descriptor_layout = builder.build(device, ShaderStageFlagBits::eCompute);
     }
-
-   // draw_image_descriptors = global_descriptor_allocator.allocate(device, draw_image_descriptor_layout);
-    
-    //DescriptorWriter writer {};
-    //writer.write_image(0, draw_image.image_view, VK_NULL_HANDLE, ImageLayout::eGeneral, DescriptorType::eStorageImage);
-    //writer.update_set(device, draw_image_descriptors);
 
     DescriptorLayoutBuilder builder;
     builder.add_binding(0, DescriptorType::eUniformBuffer);
@@ -915,7 +917,8 @@ void Renderer::immediate_submit(std::function<void(CommandBuffer p_cmd)>&& funct
 
 
 void Renderer::transition_image(CommandBuffer p_cmd, Image p_image, ImageLayout p_current_layout, ImageLayout p_target_layout) {
-    ImageAspectFlags aspect_mask = (p_target_layout == ImageLayout::eDepthAttachmentOptimal) ? ImageAspectFlagBits::eDepth : ImageAspectFlagBits::eColor;
+    ImageAspectFlags aspect_mask = (p_target_layout == ImageLayout::eDepthAttachmentOptimal || p_current_layout == ImageLayout::eDepthAttachmentOptimal)
+        ? ImageAspectFlagBits::eDepth : ImageAspectFlagBits::eColor;
     
     ImageMemoryBarrier2 image_barrier {
         .srcStageMask   = PipelineStageFlagBits2::eAllCommands,
@@ -945,7 +948,6 @@ void Renderer::transition_image(CommandBuffer p_cmd, Image p_image, ImageLayout 
 }
 
 void Renderer::copy_image_to_image(CommandBuffer p_cmd, Image p_source, Image p_destination, Extent2D source_size, Extent2D destination_size) {
-    //std::vector<Offset3D> src_offsets = { Offset3D{source_size.width, source_size.height, 1} };
     ImageBlit2 blit_region {
         .srcSubresource = ImageSubresourceLayers {
             .aspectMask = ImageAspectFlagBits::eColor,
@@ -1130,7 +1132,7 @@ void Renderer::cleanup() {
 
 void Renderer::draw_skybox(CommandBuffer p_cmd) {
     RenderingAttachmentInfo color_attachment {
-        .imageView   = draw_image.image_view,
+        .imageView   = gbuffer_albedo.image_view,
         .imageLayout = ImageLayout::eColorAttachmentOptimal,
         .loadOp      = AttachmentLoadOp::eLoad,
         .storeOp     = AttachmentStoreOp::eStore,
@@ -1142,7 +1144,7 @@ void Renderer::draw_skybox(CommandBuffer p_cmd) {
         .storeOp     = AttachmentStoreOp::eNone,
     };
     RenderingInfo render_info {
-        .renderArea = Rect2D { {0, 0}, {draw_image.image_extent.width, draw_image.image_extent.height} },
+        .renderArea = Rect2D { {0, 0}, {gbuffer_albedo.image_extent.width, gbuffer_albedo.image_extent.height} },
         .layerCount = 1,
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachment,
@@ -1209,8 +1211,14 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
     writer.write_buffer(0, scene_data_buffer.buffer, sizeof(GPUSceneData), 0, DescriptorType::eUniformBuffer);
     writer.update_set(device, global_descriptor);
 
-    RenderingAttachmentInfo color_attachment {
-        .imageView   = draw_image.image_view,
+    RenderingAttachmentInfo color_attachment_albedo {
+        .imageView   = gbuffer_albedo.image_view,
+        .imageLayout = ImageLayout::eColorAttachmentOptimal,
+        .loadOp      = AttachmentLoadOp::eLoad,
+        .storeOp     = AttachmentStoreOp::eStore,
+    };
+    RenderingAttachmentInfo color_attachment_normal {
+        .imageView   = gbuffer_normal.image_view,
         .imageLayout = ImageLayout::eColorAttachmentOptimal,
         .loadOp      = AttachmentLoadOp::eLoad,
         .storeOp     = AttachmentStoreOp::eStore,
@@ -1224,11 +1232,12 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
             .depthStencil = {.depth = 0.0f},
         },
     };
+    RenderingAttachmentInfo color_attachments[] = { color_attachment_albedo, color_attachment_normal };
     RenderingInfo render_info {
-        .renderArea = Rect2D { {0, 0}, {draw_image.image_extent.width, draw_image.image_extent.height} },
+        .renderArea = Rect2D { {0, 0}, {gbuffer_albedo.image_extent.width, gbuffer_albedo.image_extent.height} },
         .layerCount = 1,
-        .colorAttachmentCount = 1,
-        .pColorAttachments = &color_attachment,
+        .colorAttachmentCount = 2,
+        .pColorAttachments = color_attachments,
         .pDepthAttachment = &depth_attachment,
     };
 
@@ -1257,6 +1266,8 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
             if (render_object.material->shader != previous_shader) {
                 previous_shader = render_object.material->shader;
                 render_object.material->shader->bind(p_cmd);
+                p_cmd.setColorBlendEnableEXT(0, {False, False});
+                p_cmd.setColorWriteMaskEXT(0, { ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA, ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA });
                 p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, render_object.material->shader->layout, 0, 1, &global_descriptor, 0, nullptr);
             }
 
@@ -1296,13 +1307,34 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
 }
 
 void Renderer::draw_lighting(CommandBuffer p_cmd) {
-    DescriptorSet lighting_descriptor = get_current_frame().descriptors.allocate(device, storage_image_descriptor_layout);
-    DescriptorWriter writer {};
-    writer.write_image(0, draw_image.image_view, VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
-    writer.write_image(1, storage_image.image_view, VK_NULL_HANDLE, ImageLayout::eGeneral, DescriptorType::eStorageImage);
-    writer.update_set(device, lighting_descriptor);
     
-    p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, lighting_shader.layout, 0, 1, &lighting_descriptor, 0, nullptr);
+    // TODO: Separate scene data into what's needed for first and second gbuffer passes, don't ubpload data twice
+    AllocatedBuffer scene_data_buffer = create_buffer(sizeof(GPUSceneData), BufferUsageFlagBits::eUniformBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    get_current_frame().deletion_queue.push_function([=, this]() {
+        destroy_buffer(scene_data_buffer);
+    });
+
+    GPUSceneData* scene_uniform_data = (GPUSceneData*) scene_data_buffer.info.pMappedData;
+    *scene_uniform_data = scene_data;
+
+    DescriptorSet global_descriptor = get_current_frame().descriptors.allocate(device, scene_data_descriptor_layout);
+    {
+        DescriptorWriter writer {};
+        writer.write_buffer(0, scene_data_buffer.buffer, sizeof(GPUSceneData), 0, DescriptorType::eUniformBuffer);
+        writer.update_set(device, global_descriptor);
+    }
+    DescriptorSet lighting_descriptor = get_current_frame().descriptors.allocate(device, storage_image_descriptor_layout);
+    {
+        DescriptorWriter writer {};
+        writer.write_buffer(0, scene_data_buffer.buffer, sizeof(GPUSceneData), 0, DescriptorType::eUniformBuffer);
+        writer.write_image(1, depth_image.image_view,       VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
+        writer.write_image(2, gbuffer_albedo.image_view,    VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
+        writer.write_image(3, gbuffer_normal.image_view,    VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
+        writer.write_image(4, storage_image.image_view,     VK_NULL_HANDLE, ImageLayout::eGeneral,               DescriptorType::eStorageImage);
+        writer.update_set(device, lighting_descriptor);
+    }
+    DescriptorSet sets[] = {global_descriptor, lighting_descriptor};
+    p_cmd.bindDescriptorSets(PipelineBindPoint::eCompute, lighting_shader.layout, 0, 2, sets, 0, nullptr);
     lighting_shader.bind(p_cmd);
     p_cmd.dispatch(std::ceil(draw_extent.width / 16.0f), std::ceil(draw_extent.height / 16.0f), 1);
 }
@@ -1346,24 +1378,27 @@ void Renderer::draw() {
     CommandBuffer cmd = get_current_frame().command_buffer;
     cmd.reset();
 
-    draw_extent.width  = std::min(viewport_size.width, draw_image.image_extent.width);
-    draw_extent.height = std::min(viewport_size.height, draw_image.image_extent.height);
+    draw_extent.width  = std::min(viewport_size.width, gbuffer_albedo.image_extent.width);
+    draw_extent.height = std::min(viewport_size.height, gbuffer_albedo.image_extent.height);
 
     CommandBufferBeginInfo begin_info {
         .flags = CommandBufferUsageFlagBits::eOneTimeSubmit,
     };
     cmd.begin(begin_info);
 
-    transition_image(cmd, draw_image.image, ImageLayout::eUndefined, ImageLayout::eColorAttachmentOptimal);
-    transition_image(cmd, depth_image.image, ImageLayout::eUndefined, ImageLayout::eDepthAttachmentOptimal);
-    transition_image(cmd, storage_image.image, ImageLayout::eUndefined, ImageLayout::eGeneral);
+    transition_image(cmd, depth_image.image,    ImageLayout::eUndefined, ImageLayout::eDepthAttachmentOptimal);
+    transition_image(cmd, gbuffer_albedo.image, ImageLayout::eUndefined, ImageLayout::eColorAttachmentOptimal);
+    transition_image(cmd, gbuffer_normal.image, ImageLayout::eUndefined, ImageLayout::eColorAttachmentOptimal);
+    transition_image(cmd, storage_image.image,  ImageLayout::eUndefined, ImageLayout::eGeneral);
     
     cmd.setRasterizationSamplesEXT(gSamples);
     cmd.setSampleMaskEXT(gSamples, { 0xffffffff });
     draw_geometry(cmd);
     draw_skybox(cmd);
 
-    transition_image(cmd, draw_image.image, ImageLayout::eColorAttachmentOptimal, ImageLayout::eShaderReadOnlyOptimal);
+    transition_image(cmd, depth_image.image,    ImageLayout::eDepthAttachmentOptimal, ImageLayout::eShaderReadOnlyOptimal);
+    transition_image(cmd, gbuffer_albedo.image, ImageLayout::eColorAttachmentOptimal, ImageLayout::eShaderReadOnlyOptimal);
+    transition_image(cmd, gbuffer_normal.image, ImageLayout::eColorAttachmentOptimal, ImageLayout::eShaderReadOnlyOptimal);
     
     cmd.setRasterizationSamplesEXT(SampleCountFlagBits::e1);
     cmd.setSampleMaskEXT(SampleCountFlagBits::e1, { 0xffffffff });
@@ -1490,7 +1525,7 @@ void MaterialMetallicRoughness::build_shaders(Renderer* p_renderer) {
         .set_multisampling_none()
         .disable_blending()
         .enable_depth_testing(True, CompareOp::eGreaterOrEqual)
-        .set_color_attachment_format(p_renderer->draw_image.image_format)
+        .set_color_attachment_format(p_renderer->gbuffer_albedo.image_format)
         .set_depth_format(p_renderer->depth_image.image_format);
     
     ShaderCreateInfoEXT vertex_shader_info {
