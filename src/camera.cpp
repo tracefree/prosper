@@ -30,7 +30,7 @@ void Camera::process_SDL_Event(SDL_Event& event) {
         if (event.key.scancode == SDL_SCANCODE_D) { horizontal_velocity.x =  0.0; }
         if (event.key.scancode == SDL_SCANCODE_Q) { vertical_velocity     =  0.0; }
         if (event.key.scancode == SDL_SCANCODE_E) { vertical_velocity     =  0.0; }
-        if (event.key.scancode == SDL_SCANCODE_LSHIFT) { speed =  2.0; }
+        if (event.key.scancode == SDL_SCANCODE_LSHIFT) { speed =  3.0; }
     }
 
     if (event.type == SDL_EVENT_MOUSE_MOTION) {

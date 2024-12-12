@@ -33,6 +33,13 @@ struct Vertex {
     Vec4 tangent;
 };
 
+struct PointLight {
+    Vec3 position;
+    float intensity;
+    Vec3 color;
+    float _padding1;
+};
+
 struct GPUMeshBuffers {
     AllocatedBuffer index_buffer;
     AllocatedBuffer vertex_buffer;
@@ -49,9 +56,11 @@ struct SceneLightsData {
     Mat4 view;
     Mat4 projection;
     Mat4 view_projection;
+    Mat4 inverse_projection;
     Vec4 ambient_color;
     Vec4 sunlight_direction;
     Vec4 sunlight_color;
+    PointLight point_lights[8];
 };
 
 struct LightingPassPushConstants {

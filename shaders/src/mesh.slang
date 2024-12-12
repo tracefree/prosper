@@ -52,9 +52,9 @@ VSOutput vertex(uint vertexID: SV_VertexID) {
         normalize(mul(float4(vertex.tangent.xyz, 0.0), model_matrix).xyz),
         normalize(mul(float4(cross(vertex.normal, vertex.tangent.xyz) * vertex.tangent.w, 0.0), model_matrix).xyz),
         normalize(mul(float4(vertex.normal, 0.0), model_matrix).xyz)
-    ); 
-    
-    let world_position = mul(push_constants.model_matrix, float4(vertex.position, 1.0));
+    );
+
+    let world_position = mul(float4(vertex.position, 1.0), push_constants.model_matrix);
     
     return VSOutput(
         mul(push_constants.view_projection, world_position),
@@ -70,6 +70,7 @@ FSOutput fragment(
     float3x3 tbn_ws: TBN_WS,
     float4 color: VertexColor,
     float2 uv: VertexUV,
+    int coverage: SV_Coverage,
 )
 {
     let albedo_texture_sample = fragment_params.albedo_texture.Sample(uv);

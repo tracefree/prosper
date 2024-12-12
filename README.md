@@ -22,7 +22,7 @@ Based on [vkguide.dev](https://vkguide.dev), with the main differences being tha
 - [x] MSAA
 - [ ] SSAO
 - [ ] Either PBR or a shading model useful for stylized rendering
-- [ ] Dynamic lighting
+- [ ] Dynamic lighting (directional and point lights implemented, but no shadows yet)
 - [ ] Global illumination
 - [ ] Anything else I come up with along the way
 

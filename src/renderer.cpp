@@ -521,7 +521,6 @@ bool Renderer::create_descriptors() {
     };
 
     global_descriptor_allocator.init_pool(device, 10, sizes);
-
     {
         DescriptorLayoutBuilder builder;
         builder.add_binding(0, DescriptorType::eSampledImage);  // Input depth_image
@@ -534,7 +533,6 @@ bool Renderer::create_descriptors() {
     DescriptorLayoutBuilder builder;
     builder.add_binding(0, DescriptorType::eUniformBuffer);
     scene_data_descriptor_layout = builder.build(device, ShaderStageFlagBits::eCompute);
-
     {
         DescriptorLayoutBuilder builder;
         builder.add_binding(0, DescriptorType::eCombinedImageSampler);
@@ -972,7 +970,7 @@ void Renderer::copy_image_to_image(CommandBuffer p_cmd, Image p_source, Image p_
             .layerCount = 1,
         },
     };
-    blit_region.srcOffsets[1] = Offset3D {static_cast<int32_t>(source_size.width), static_cast<int32_t>(source_size.height), 1};
+    blit_region.srcOffsets[1] = Offset3D {static_cast<int32_t>(source_size.width),      static_cast<int32_t>(source_size.height),      1};
     blit_region.dstOffsets[1] = Offset3D {static_cast<int32_t>(destination_size.width), static_cast<int32_t>(destination_size.height), 1};
 
     BlitImageInfo2 blit_info {
@@ -1473,10 +1471,39 @@ void Renderer::update_scene() {
     scene_data.projection[1][1] *= -1.0f;
  
     scene_data.view_projection = scene_data.projection * scene_data.view;
+    scene_data.inverse_projection = glm::inverse(scene_data.projection);
 
-    scene_data.ambient_color = Vec4(0.1f, 0.1f, 0.1f, 0.0f);
-    scene_data.sunlight_color = Vec4(0.5f, 0.5f, 0.5f, 1.0f);
+    scene_data.ambient_color = Vec4(1.0f, 1.0f, 1.0f, 0.1f);
+    scene_data.sunlight_color = Vec4(0.5f, 0.5f, 0.5f, 0.0f);
     scene_data.sunlight_direction = Vec4(glm::normalize(Vec3(0.5, 0.5, 0.5)), 1.0f);
+    scene_data.point_lights[0] = PointLight {
+        .position = Vec3(0.0f, 5.0f, 0.0f),
+        .intensity = 10.0f,
+        .color = Vec3(1.0f),
+    };
+
+    Vec3 torch_color = Vec3(1.0f, 0.2f, 0.05f);
+    float torch_intensity = 3.0f;
+    scene_data.point_lights[1] = PointLight {
+        .position = Vec3(9.0f, 1.3f, -3.6f),
+        .intensity = torch_intensity,
+        .color = torch_color,
+    };
+    scene_data.point_lights[2] = PointLight {
+        .position = Vec3(-9.6f, 1.3f, -3.6f),
+        .intensity = torch_intensity,
+        .color = torch_color,
+    };
+    scene_data.point_lights[3] = PointLight {
+        .position = Vec3(-9.6f, 1.3f, 3.25f),
+        .intensity = torch_intensity,
+        .color = torch_color,
+    };
+    scene_data.point_lights[4] = PointLight {
+        .position = Vec3(9.0f, 1.3f, 3.25f),
+        .intensity = torch_intensity,
+        .color = torch_color,
+    };
 
     auto end_time = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
