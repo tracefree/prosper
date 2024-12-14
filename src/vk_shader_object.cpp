@@ -18,6 +18,7 @@ ShaderObject& ShaderObject::set_polygon_mode(PolygonMode p_mode) {
 
 ShaderObject& ShaderObject::set_cull_mode(CullModeFlags p_cull_mode, FrontFace p_front_face) {
     cull_mode = p_cull_mode;
+    front_face = p_front_face;
     return *this;
 }
 

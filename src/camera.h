@@ -12,7 +12,7 @@ public:
     float pitch {0.0f};
     float yaw {0.0f};
 
-    float speed {4.0f};
+    float speed {1.0f};
     bool controls_enabled { true };
 
     Mat4 get_view_matrix();

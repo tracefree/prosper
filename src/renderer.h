@@ -42,6 +42,7 @@ struct FrameData {
     Fence render_fence;
     DeletionQueue deletion_queue;
     DescriptorAllocatorGrowable descriptors;
+    GPUDrawPushConstants push_constants;
 };
 
 struct ComputePushConstants {

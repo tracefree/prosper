@@ -20,9 +20,9 @@ struct Push {
 [[vk::push_constant]]
 ConstantBuffer<Push> push_constants;
 
-
-func caluclate_point_light_illumination(float3 albedo, float3 normal_vs, float3 position_vs)->float3 {
+func caluclate_point_light_illumination(float3 albedo, float3 normal_vs, float3 position_vs, float metallic, float roughness)->float3 {
     var diffuse = float3(0.0);
+    var specular = float3(0.0);
     for (int light_index = 0; light_index < 8; ++light_index) {
         let point_light = scene_data.point_lights[light_index];
         let light_positon_vs = mul(scene_data.view, float4(point_light.position, 1.0)).xyz;
@@ -30,9 +30,15 @@ func caluclate_point_light_illumination(float3 albedo, float3 normal_vs, float3 
         let light_direction = normalize(light_vector);
         let light_value = max(dot(normal_vs, light_direction), 0.0);
         let attenuation = 1.0 / dot(light_vector, light_vector);
-        diffuse += albedo * light_value * point_light.color * point_light.intensity * attenuation;
+        let reflect_direction = reflect(-light_direction, normal_vs);
+
+        diffuse += albedo * light_value * point_light.color * point_light.intensity * attenuation * roughness;
+
+        let view_direction = normalize(-position_vs);
+        let shininess = metallic;
+        specular += albedo * point_light.color * pow(max(dot(view_direction, normalize(reflect_direction)), 0.0), 32.0) * metallic * attenuation;
     }
-    return diffuse;
+    return diffuse + specular;
 }
 
 func calculate_illumination(float3 albedo, float3 normal) -> float3 {
@@ -57,19 +63,28 @@ void compute(
     uint2 size;
     uint sample_count;
     gbuffers.color_image.GetDimensions(size.x, size.y, sample_count);
-
     float2 screen_uv = float2(texel_coord) / float2(size);
 
-    // Currently lighting is calculated for each subsample, defeating the purpose of MSAA.
-    // TODO: Detect complex pixels and supersample only those.
+    // TODO: Optimize supersampling for complex pixels, reduce branching
     if (texel_coord.x < size.x && texel_coord.y < size.y) {
         float4 color = float4(0.0, 0.0, 0.0, 1.0);
-        var is_complex = false;
-        var prev_albedo = float3(0.0);
-        for (int sample_id = 0; sample_id < sample_count; sample_id++) {
-            let albedo = gbuffers.color_image.Load(texel_coord, sample_id);
-            let normal_ws = gbuffers.normal_image.Load(texel_coord, sample_id).xyz;
+        
+        bool complex_pixel = false;
+        for (int id = 0; id < sample_count; id++) {
+            complex_pixel = complex_pixel || gbuffers.normal_image.Load(texel_coord, id).a > 0.0;
+        }
+        
+        int sample_id = 0;
+        do {
+            let albedo_metallic_sample = gbuffers.color_image.Load(texel_coord, sample_id);
+            let albedo = albedo_metallic_sample.rgb;
+            let metallic = albedo_metallic_sample.a;
+
+            let normal_roughness_sample = gbuffers.normal_image.Load(texel_coord, sample_id);
+            let roughness = 1.0; // normal_roughness_sample.a; // TODO: Reintroduce roughness after optimizing G-buffer
+            let normal_ws = normal_roughness_sample.xyz;
             let normal_vs = normalize(mul(scene_data.view, float4(normal_ws, 0.0)).xyz);
+
             let depth = gbuffers.depth_image.Load(texel_coord, sample_id);
 
             float4 position_nonlinear = mul(scene_data.inverse_projection, float4(screen_uv * 2.0 - 1.0, depth, 1.0));
@@ -77,12 +92,23 @@ void compute(
 
             if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_NORMALS) > 0) {
                 color.rgb += normal_vs * 0.5 + 0.5;
+            } else if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_METAL) > 0) {
+                color.rgb += float3(metallic);
+            } else if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_ROUGHNESS) > 0) {
+                color.rgb += float3(roughness);
             } else {
-                color.rgb += caluclate_point_light_illumination(albedo.rgb, normal_vs, position_vs);
+                color.rgb += caluclate_point_light_illumination(albedo.rgb, normal_vs, position_vs, metallic, roughness);
                 color.rgb += albedo.rgb * scene_data.ambient_color.rgb * scene_data.ambient_color.w;
             }
-        }
-        color.rgb /= float(sample_count);
+
+            if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_COMPLEX_PIXELS) > 0) {
+                color.r = complex_pixel ? 1.0 : color.r;
+            }
+
+            sample_id++;
+        } while ((sample_id < sample_count) && complex_pixel);
+        
+        color.rgb /= float(sample_id);
         color.rgb = tonemap_reinhard(color.rgb, push_constants.white_point);
         gbuffers.storage_image[texel_coord] = color;
     }

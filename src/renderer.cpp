@@ -654,6 +654,10 @@ AllocatedBuffer Renderer::create_buffer(size_t p_allocation_size, BufferUsageFla
         &new_buffer.allocation,
         &new_buffer.info
     );
+    if (result != VK_SUCCESS) {
+        print("Could not create buffer! Vulkan error: %s", string_VkResult(result));
+        print("banan");
+    }
     return new_buffer;
 }
 
@@ -827,9 +831,9 @@ void Renderer::destroy_image(const AllocatedImage& p_image) {
 
 
 GPUMeshBuffers Renderer::upload_mesh(std::span<uint32_t> p_indices, std::span<Vertex> p_vertices) {
-    const size_t index_buffer_size  = p_indices.size()  * sizeof(uint32_t);
     const size_t vertex_buffer_size = p_vertices.size() * sizeof(Vertex);
-
+    const size_t index_buffer_size  = p_indices.size()  * sizeof(uint32_t);
+    
     GPUMeshBuffers new_surface;
 
     new_surface.vertex_buffer = create_buffer(
@@ -874,6 +878,8 @@ GPUMeshBuffers Renderer::upload_mesh(std::span<uint32_t> p_indices, std::span<Ve
     });
 
     destroy_buffer(staging);
+
+
 
     return new_surface;
 }
@@ -1274,13 +1280,13 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
             p_cmd.bindIndexBuffer(render_object.index_buffer, 0, IndexType::eUint32);
         }
         
-        GPUDrawPushConstants push_constants {
+        get_current_frame().push_constants = {
             .model_matrix = render_object.transform,
             .view_projection = scene_data.view_projection,
             .vertex_buffer_address = render_object.vertex_buffer_address,
         };
         
-        p_cmd.pushConstants(render_object.material->shader->layout, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment, 0, sizeof(GPUDrawPushConstants), &push_constants);
+        p_cmd.pushConstants(render_object.material->shader->layout, ShaderStageFlagBits::eVertex | ShaderStageFlagBits::eFragment, 0, sizeof(GPUDrawPushConstants), &get_current_frame().push_constants);
 
         p_cmd.drawIndexed(render_object.index_count, 1, render_object.first_index, 0, 0);
 
@@ -1483,7 +1489,7 @@ void Renderer::update_scene() {
     };
 
     Vec3 torch_color = Vec3(1.0f, 0.2f, 0.05f);
-    float torch_intensity = 3.0f;
+    float torch_intensity = 2.0f;
     scene_data.point_lights[1] = PointLight {
         .position = Vec3(9.0f, 1.3f, -3.6f),
         .intensity = torch_intensity,
@@ -1502,6 +1508,26 @@ void Renderer::update_scene() {
     scene_data.point_lights[4] = PointLight {
         .position = Vec3(9.0f, 1.3f, 3.25f),
         .intensity = torch_intensity,
+        .color = torch_color,
+    };
+    scene_data.point_lights[5] = PointLight {
+        .position = Vec3(-5.0f, 1.1f, -1.7f),
+        .intensity = 1.0f + std::abs(std::sin(gStats.time_since_start * 4.0f + 1.0f)) / 2.0f,
+        .color = torch_color,
+    };
+    scene_data.point_lights[6] = PointLight {
+        .position = Vec3(-5.0f, 1.1f, 1.1f),
+        .intensity = 1.0f + std::abs(std::sin(gStats.time_since_start * 4.0f + 2.0f)) / 2.0f,
+        .color = torch_color,
+    };
+    scene_data.point_lights[7] = PointLight {
+        .position = Vec3(3.8f, 1.1f, -1.7f),
+        .intensity = 1.0f + std::abs(std::sin(gStats.time_since_start * 4.0f + 3.0f)) / 2.0f,
+        .color = torch_color,
+    };
+    scene_data.point_lights[0] = PointLight {
+        .position = Vec3(3.8f, 1.1f, 1.1f),
+        .intensity = 1.0f + std::abs(std::sin(gStats.time_since_start * 4.0f + 4.0f)) / 2.0f,
         .color = torch_color,
     };
 
@@ -1547,7 +1573,7 @@ void MaterialMetallicRoughness::build_shaders(Renderer* p_renderer) {
     opaque_shader
         .set_input_topology(PrimitiveTopology::eTriangleList)
         .set_polygon_mode(PolygonMode::eFill)
-        .set_cull_mode(CullModeFlagBits::eNone, FrontFace::eCounterClockwise)
+        .set_cull_mode(CullModeFlagBits::eBack, FrontFace::eCounterClockwise)
         .set_multisampling_none()
         .disable_blending()
         .enable_depth_testing(True, CompareOp::eGreaterOrEqual)

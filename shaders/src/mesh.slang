@@ -46,7 +46,6 @@ ConstantBuffer<Push> push_constants;
 [shader("vertex")]
 VSOutput vertex(uint vertexID: SV_VertexID) {
     let vertex = push_constants.vertices[vertexID];
-    
     let model_matrix = push_constants.model_matrix;
     var tbn_ws = float3x3(
         normalize(mul(float4(vertex.tangent.xyz, 0.0), model_matrix).xyz),
@@ -70,21 +69,28 @@ FSOutput fragment(
     float3x3 tbn_ws: TBN_WS,
     float4 color: VertexColor,
     float2 uv: VertexUV,
-    int coverage: SV_Coverage,
+    uint coverage: SV_Coverage,
 )
 {
     let albedo_texture_sample = fragment_params.albedo_texture.Sample(uv);
     if (albedo_texture_sample.a < 0.5) {
         discard;
     }
+    
     let albedo = color.rgb * albedo_texture_sample.rgb;
 
     let normal_texture_sample = fragment_params.normal_texture.Sample(uv).xyz;
     var normal_ts = normal_texture_sample * 2.0 - 1.0;
     let normal_ws = mul(normal_ts, tbn_ws);
-    
+
+    let metallic_roughness_sample = fragment_params.metal_roughness_texture.Sample(uv).rgb;
+    let metallic = metallic_roughness_sample.b;
+    let roughness = metallic_roughness_sample.g;
+
+    // TODO: Don't use full float for pixel complexity, put roughness back into the gbuffer
+    let complex_pixel = coverage == 15 ? 0.0 : 1.0;
     return FSOutput(
-        float4(albedo, 1.0),
-        float4(normal_ws, 1.0)
+        float4(albedo, metallic),
+        float4(normal_ws, complex_pixel)
     );
 }

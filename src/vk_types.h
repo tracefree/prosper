@@ -141,4 +141,5 @@ struct PerformanceStats {
     uint32_t drawcall_count;
     float scene_update_time;
     float mesh_draw_time;
+    float time_since_start {0.0f};
 };

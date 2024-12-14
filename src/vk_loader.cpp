@@ -5,12 +5,18 @@
 
 #include "stb_image.h"
 #include <iostream>
+#include <fstream>
+#include <span>
+
 #include <variant>
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 
 using namespace vk;
+
+//#define WRITE_GLTF
+#define PARSE_GLTF_DATA
 
 Filter extract_filter(fastgltf::Filter filter) {
     switch(filter) {
@@ -53,6 +59,8 @@ SamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
         return SamplerMipmapMode::eLinear;
     }
 }
+
+
 
 std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer, std::filesystem::path p_file_path) {
     print("Loading GLTF: %s", p_file_path.c_str());
@@ -157,6 +165,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
                 0.0f, 0.0f
             )
         };
+        
         scene_material_constants[data_index] = constants;
 
         MaterialPass pass_type = (temp_material.alphaMode == fastgltf::AlphaMode::Blend) ? MaterialPass::Transparent : MaterialPass::MainColor;
@@ -201,9 +210,9 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
             material_resources.normal_sampler = file.samplers[sampler_index];
         }
 
-        if (temp_material.packedNormalMetallicRoughnessTexture.has_value()) {
-            size_t image_index   = asset.textures[temp_material.packedNormalMetallicRoughnessTexture.value().textureIndex].imageIndex.value();
-            size_t sampler_index = asset.textures[temp_material.packedNormalMetallicRoughnessTexture.value().textureIndex].samplerIndex.value();
+        if (temp_material.pbrData.metallicRoughnessTexture.has_value()) {
+            size_t image_index   = asset.textures[temp_material.pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.value();
+            size_t sampler_index = asset.textures[temp_material.pbrData.metallicRoughnessTexture.value().textureIndex].samplerIndex.value();
 
             if (!temp_textures[image_index].has_value()) {
                 temp_textures[image_index] = load_image(p_renderer, asset, asset.images[image_index]);
@@ -233,12 +242,22 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
         vertices.clear();
 
         for (auto&& primitive : mesh.primitives) {
+            // Surfaces
             MeshSurface new_surface;
             new_surface.start_index = (uint32_t) indices.size();
             new_surface.count = (uint32_t) asset.accessors[primitive.indicesAccessor.value()].count;
 
+            if (primitive.materialIndex.has_value()) {
+                new_surface.material = temp_materials[primitive.materialIndex.value()];
+            } else {
+                new_surface.material = temp_materials[0];
+            }
+            new_mesh->surfaces.push_back(new_surface);
+
+            // Vertices and indices
             size_t initial_vertex_index = vertices.size();
 
+#ifdef PARSE_GLTF_DATA
             // Indices
             {
                 fastgltf::Accessor& index_accessor = asset.accessors[primitive.indicesAccessor.value()];
@@ -279,6 +298,7 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
                     }
                 );
             }
+
             auto tangents = primitive.findAttribute("TANGENT");
             if (tangents != primitive.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<Vec4>(asset, asset.accessors[(*tangents).accessorIndex],
@@ -308,17 +328,31 @@ std::optional<std::shared_ptr<LoadedGLTF>> load_gltf_scene(Renderer* p_renderer,
                     }
                 );
             }
-
-            if (primitive.materialIndex.has_value()) {
-                new_surface.material = temp_materials[primitive.materialIndex.value()];
-            } else {
-                new_surface.material = temp_materials[0];
-            }
-
-            new_mesh->surfaces.push_back(new_surface);
+#endif
         }
 
+#ifdef WRITE_GLTF
+        std::fstream mesh_file(std::format("{}.{}", p_file_path.c_str(), "imp"), std::fstream::out | std::fstream::binary);
+        mesh_file.write((char*)vertices.data(), vertices.size() * sizeof(Vertex));
+        mesh_file.write((char*)indices.data(), indices.size() * sizeof(uint32_t));
+        mesh_file.close();
+        //std::printf("Indices %u, Vertices %u", (uint)indices.size(), vertices.size());
         new_mesh->mesh_buffers = p_renderer->upload_mesh(indices, vertices);
+#else
+        std::fstream mesh_file(std::format("{}.{}", p_file_path.c_str(), "imp"), std::ios::in | std::ios::binary);
+
+        constexpr uint32_t vertex_count = 192496;
+        constexpr uint32_t index_count  = 786801;
+
+        vertices.resize(vertex_count);
+        indices.resize(index_count);
+        
+        mesh_file.read(reinterpret_cast<char*>(vertices.data()), vertex_count * sizeof(Vertex));
+        mesh_file.read(reinterpret_cast<char*>(indices.data()), index_count * sizeof(uint32_t));
+        mesh_file.close();
+        
+        new_mesh->mesh_buffers = p_renderer->upload_mesh(indices, vertices);
+#endif
     }
 
     // Nodes
