@@ -1,13 +1,14 @@
 # Prosper
-C++ rendering engine using [Vulkan](https://www.vulkan.org/), the [Slang](https://shader-slang.com/) shader language, and [SDL3](https://wiki.libsdl.org/SDL3/FrontPage). (Work in progress.)
+C++ rendering/game engine using [Vulkan](https://www.vulkan.org/), the [Slang](https://shader-slang.com/) shader language, and [SDL3](https://wiki.libsdl.org/SDL3/FrontPage). Work in progress.
 
 ![prosper](https://github.com/user-attachments/assets/4e6cc111-e4b5-4894-8a68-e53faa229e4a)
 
-This project originally started as a minimal "Hello World" example to render a single triangle which I [moved to a new repository](https://github.com/tracefree/vulkan-triangle-sdl-slang) for anyone interested in a less complex setup using Slang and Vulkan. I will continue to develop the engine in this repository. It is not supposed to be a general purpose rendering engine - the primary goals of Prosper are to serve as a testing ground to me for experimenting with graphics programming techniques, and to be used for a video game I will be making. Therefore I will only implement features I am interested in and that are directly useful to the visual style I'm going for.
+This project originally started as a minimal "Hello World" example to render a single triangle which I [moved to a new repository](https://github.com/tracefree/vulkan-triangle-sdl-slang) for anyone interested in a less complex setup using Slang and Vulkan. I will continue to develop the engine in this repository. It is not supposed to be a general purpose engine - the primary goals of Prosper are to serve as a testing ground to me for experimenting with graphics programming techniques, and to be used for a video game I will be making. Therefore I will only implement features I am interested in and that are directly useful to the visual style I'm going for.
 
-Based on [vkguide.dev](https://vkguide.dev), with the main differences being that I use Slang instead of GLSL and the VulkanHpp headers instead of the C API. Also very helpful resources were the [Vulkan Lecture Series](https://www.youtube.com/playlist?list=PLmIqTlJ6KsE1Jx5HV4sd2jOe3V1KMHHgn) by TU Wien and [vulkan-tutorial.com](https://vulkan-tutorial.com/).
+Initially based on the tutorial by [vkguide.dev](https://vkguide.dev), now with heavy modifications and extensions. Also very helpful resources were the [Vulkan Lecture Series](https://www.youtube.com/playlist?list=PLmIqTlJ6KsE1Jx5HV4sd2jOe3V1KMHHgn) by TU Wien and [vulkan-tutorial.com](https://vulkan-tutorial.com/).
 
-## Current and planned features (non-exhaustive)
+## Current and planned features (non-exhaustive list)
+Rendering:
 - [x] [Buffer device addresses](https://docs.vulkan.org/samples/latest/samples/extensions/buffer_device_address/README.html)
 - [X] [Dynamic rendering](https://docs.vulkan.org/samples/latest/samples/extensions/dynamic_rendering/README.html) instead of render passes
 - [x] [Shader objects](https://docs.vulkan.org/samples/latest/samples/extensions/shader_object/README.html) instead of pipelines
@@ -15,40 +16,57 @@ Based on [vkguide.dev](https://vkguide.dev), with the main differences being tha
 - [x] Normal mapping
 - [ ] GPU driven rendering
 - [x] Deffered rendering
-- [ ] Skeletal animation
-- [ ] Integrating a physics engine
+- [x] Skeletal animation
 - [x] HDR with tonemapping
 - [ ] Bloom
 - [x] MSAA
 - [ ] SSAO
 - [ ] Either PBR or a shading model useful for stylized rendering
-- [ ] Dynamic lighting (directional and point lights implemented, but no shadows yet)
+- [x] Directional and point lights
+- [ ] Shadows
 - [ ] Global illumination
-- [ ] Anything else I come up with along the way
+- [ ] Skybox
+- [ ] etc.
+
+General game engine features:
+- [x] Basic character controller with third person camera
+- [x] Make-shift scene format based on .yaml files 
+- [ ] Integrating the Jolt physics engine
+- [x] Observer pattern with signals
+- [x] Node / component system
+- [ ] Modding support
+- [ ] RPG gameplay systems
+- [ ] etc.
 
 ## Installation instructions
 ### Linux (and probably Mac and BSD)
-You'll need to have installed the Vulkan SDK and SDL3 libraries on your system. To build with CMake run these commands in the terminal inside the project's directoy:
+You'll need to have installed the Vulkan SDK, SDL3, and glm libraries on your system. To build with CMake, run these commands in the terminal inside the project's directoy:
 
 ```
-mkdir build
-cd build
-cmake ..
-cmake --build .
+cmake . -B build -G Ninja
+cmake --build build
 ```
 
 The executable then gets created in `build/bin` if everything went right. 
 Regarding the shaders, they are compiled to bytecode and included with `shaders/bin/` and their source code is in `shaders/src/`. If you want to modify it you'll have to compile it with [`slangc`](https://github.com/shader-slang/slang). The `shaders` directory contains a bash script with the compile commands I used, you will need to adjust path to the slangc binary to point to where it is installed on your system.
 
-The project is currently hardcoded to load the [Sponza](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Sponza) scene on startup but I do not include the model in this repository. In order for the program to run, download the folder from the link, create the directory `assets/models` in the project root folder and put the Sponza directory inside it.
+Warning: The project is currently hardcoded to load scenes defined in .yaml files which depend on specific assets that aren't included in the repository. Therefore the program will crash on start and there is little point in building it right now, but I plan to de-hardcode this aspect and provide a separate example project soon-ish.
 
 ### Windows
 idk, you're on your own ¯\_(ツ)_/¯
 
-## License
-Libraries in the `third_party` directory include their respectve licenses. [fastgltf](https://github.com/spnda/fastgltf) and [Dear ImGui](https://github.com/ocornut/imgui) use the MIT license, and [stb_image.h](https://github.com/nothings/stb) lets you choose between public domain and MIT.
+## Dependencies
+Currently I use the following third party libraries, downloaded and built automatically via CMake:
+- [Dear ImGui](https://github.com/ocornut/imgui)
+- [fastgltf](https://github.com/spnda/fastgltf)
+- [stb_image.h](https://github.com/nothings/stb)
+- [Vulkan Memory Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git)
+- [yaml-cpp](https://github.com/jbeder/yaml-cpp.git)
+- [libktx](https://github.com/KhronosGroup/KTX-Software.git)
+- [Jolt Physics](https://github.com/jrouwe/JoltPhysics.git)
 
-The code inside `src` currently is heavily based on the snippets provied by [vkguide.dev](https://github.com/vblanco20-1/vulkan-guide/tree/all-chapters-2) which is licensed under MIT. To the extent to which my substantial modifications are my own and where my code is original I license it under your choice of either public domain or the MIT license.
+## License
+The Prosper engine source code is available under the [MIT license](LICENSE.md). Some of the Vulkan specific code is based on snippets from [vkguide.dev](https://github.com/vblanco20-1/vulkan-guide/tree/all-chapters-2) which is also licensed under MIT. For the dependencies, please refer to the respective repositories for license information.
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/63ba0ee4-e922-47bf-a14a-fc87a84f2947" alt="Prosper's logo, a rainbow colored hand made of pointy shapes doing the Vulkan greeting sign."/>

@@ -16,37 +16,24 @@ typedef glm::vec4 Vec4;
 typedef glm::mat3 Mat3;
 typedef glm::mat4 Mat4;
 
-/*
-class Vec3 {
-    glm::vec3 vector {};
-public:
-    float x;
-    float y;
-    float z;
-    Vec3();
-    Vec3(float p_x, float p_y, float p_z);
+typedef glm::quat Quaternion;
+
+struct Transform {
+    Vec3 position { 0.0f, 0.0f, 0.0f };
+    glm::quat rotation { glm::quat(Vec3(0.0f)) };
+    float scale { 1.0f };
+
+    Mat4 get_matrix();
+    const Transform operator*(Transform const& rhs);
+
+    Transform() {}
+    Transform(Transform const& p_transform);
+    Transform(Vec3 p_position, glm::quat p_rotation, float p_scale);
+    ~Transform() {}
 };
 
-class Vec4 {
-    glm::vec4 vector {};
-public:
-    float x;
-    float y;
-    float z;
-    float w;
-
-    Vec4();
-    Vec4(float x, float y, float z, float w);
-    Vec4(Vec3 xyz);
-};
-
-class Mat4 {
-    glm::mat4 matrix;
-public:
-    Mat4();
-};
-
-class Quaternion {
-    
-};
-*/
+namespace Math {
+    template <typename T> T interpolate(T a, T b, float duration, float delta) {
+        return a + (b - a) * (1.0f - std::exp(-delta / duration));
+    }
+}

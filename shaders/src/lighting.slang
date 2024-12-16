@@ -15,6 +15,8 @@ ParameterBlock<LightingParameters> gbuffers;
 struct Push {
     uint flags = 0;
     float white_point = 1.0;
+    uint viewport_width;
+    uint viewport_height;
 }
 
 [[vk::push_constant]]
@@ -53,36 +55,81 @@ func tonemap_reinhard(float3 color, float white_point)->float3 {
     return color * tonemapped_luminance;
 }
 
+func sum_of_bits(uint i)->uint {
+    uint sum = 0;
+    for (uint bit = 0; bit < 8; bit++) {
+        if ((i & (1 << bit)) > 0) {
+            sum += 1;
+        }
+    }
+    return sum;
+    /*
+    i = i - ((i >> 1) & 0x55555555);
+    i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+    return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+*/
+}
+
 [shader("compute")]
 [numthreads(16, 16, 1)]
 void compute(
     uint3 thread_id: SV_DispatchThreadID,
-    uint huh: SV_Coverage
 ) {
     uint2 texel_coord = thread_id.xy;
     uint2 size;
     uint sample_count;
     gbuffers.color_image.GetDimensions(size.x, size.y, sample_count);
-    float2 screen_uv = float2(texel_coord) / float2(size);
 
     // TODO: Optimize supersampling for complex pixels, reduce branching
-    if (texel_coord.x < size.x && texel_coord.y < size.y) {
-        float4 color = float4(0.0, 0.0, 0.0, 1.0);
-        
+    if (texel_coord.x < push_constants.viewport_width && texel_coord.y < push_constants.viewport_height) {
+        float2 screen_uv = float2(texel_coord) / float2(push_constants.viewport_width, push_constants.viewport_height);
+        uint shaded_mask = 0;
+        float4 final_color = float4(0.0, 0.0, 0.0, 1.0);
+
         bool complex_pixel = false;
-        for (int id = 0; id < sample_count; id++) {
-            complex_pixel = complex_pixel || gbuffers.normal_image.Load(texel_coord, id).a > 0.0;
+
+        //uint masks[8];
+        for (uint id = 0; id < sample_count; id++) {
+            //    var mask = uint(gbuffers.normal_image.Load(texel_coord, id).a * 15.0);
+            //    masks[id] = mask;
+            complex_pixel = complex_pixel || gbuffers.normal_image.Load(texel_coord, id).a == 1.0;
         }
-        
-        int sample_id = 0;
-        do {
+        /*
+        for (uint id = 0; id < sample_count; id++) {
+            var mask = masks[id];
+            for (uint other_id = 0; other_id < sample_count; other_id++) {
+                let bit = 1 << other_id;
+                if ((bit & mask) > 0 && other_id != id) {
+                    if (masks[other_id] != mask) {
+                        mask = mask & ~bit;
+                    }
+                }
+            }
+            masks[id] = mask;
+        }
+            */
+        //uint total_coverage_bits = 0;
+        //uint frag_count = 0;
+        for (uint sample_id = 0; sample_id < sample_count; ++sample_id) {
+         /*   
+            if (((1 << sample_id) & (~shaded_mask)) == 0) {
+                continue;
+            }
+*/
+            let normal_roughness_sample = gbuffers.normal_image.Load(texel_coord, sample_id);
+            //let coverage = masks[sample_id];
+            //let coverage = normal_roughness_sample.a; // uint(normal_roughness_sample.a * 255.0);
+            
+            //shaded_mask = shaded_mask | coverage;
+            //total_coverage_bits += sum_of_bits(coverage);
+            //frag_count += 1;
+
             let albedo_metallic_sample = gbuffers.color_image.Load(texel_coord, sample_id);
             let albedo = albedo_metallic_sample.rgb;
             let metallic = albedo_metallic_sample.a;
 
-            let normal_roughness_sample = gbuffers.normal_image.Load(texel_coord, sample_id);
             let roughness = 1.0; // normal_roughness_sample.a; // TODO: Reintroduce roughness after optimizing G-buffer
-            let normal_ws = normal_roughness_sample.xyz;
+            let normal_ws = normal_roughness_sample.xyz * 2.0 - 1.0;
             let normal_vs = normalize(mul(scene_data.view, float4(normal_ws, 0.0)).xyz);
 
             let depth = gbuffers.depth_image.Load(texel_coord, sample_id);
@@ -90,26 +137,35 @@ void compute(
             float4 position_nonlinear = mul(scene_data.inverse_projection, float4(screen_uv * 2.0 - 1.0, depth, 1.0));
             float3 position_vs = position_nonlinear.xyz / position_nonlinear.w;
 
+            float3 color = float3(0.0);
             if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_NORMALS) > 0) {
-                color.rgb += normal_vs * 0.5 + 0.5;
+                color += normal_ws * 0.5 + 0.5;
             } else if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_METAL) > 0) {
-                color.rgb += float3(metallic);
+                color += float3(metallic);
             } else if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_ROUGHNESS) > 0) {
-                color.rgb += float3(roughness);
+                color += float3(roughness);
             } else {
-                color.rgb += caluclate_point_light_illumination(albedo.rgb, normal_vs, position_vs, metallic, roughness);
-                color.rgb += albedo.rgb * scene_data.ambient_color.rgb * scene_data.ambient_color.w;
+                color += caluclate_point_light_illumination(albedo.rgb, normal_vs, position_vs, metallic, roughness);
+                color += albedo.rgb * scene_data.ambient_color.rgb * scene_data.ambient_color.w;
             }
 
-            if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_COMPLEX_PIXELS) > 0) {
-                color.r = complex_pixel ? 1.0 : color.r;
-            }
+            //color *= float(sum_of_bits(coverage));
+            //color /= sample_count;
 
-            sample_id++;
-        } while ((sample_id < sample_count) && complex_pixel);
-        
-        color.rgb /= float(sample_id);
-        color.rgb = tonemap_reinhard(color.rgb, push_constants.white_point);
-        gbuffers.storage_image[texel_coord] = color;
+            final_color.rgb += color * (complex_pixel ? 1.0/sample_count : 1.0);
+            if (!complex_pixel) {
+                break;
+            }
+        };
+
+        AllMemoryBarrier();
+
+        final_color.rgb = tonemap_reinhard(final_color.rgb, push_constants.white_point);
+
+        if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_COMPLEX_PIXELS) > 0 && complex_pixel) {
+            final_color.r = 1.0;
+        }
+
+        gbuffers.storage_image[texel_coord] = final_color;
     }
 }

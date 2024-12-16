@@ -1,37 +1,50 @@
+#include <stdlib.h>
 #include <SDL3/SDL.h>
 #define SDL_MAIN_USE_CALLBACKS
 #include <SDL3/SDL_main.h>
 #include <SDL3/SDL_vulkan.h>
-#include <string>
-#include <stdlib.h>
+#include <imgui_impl_vulkan.h>
+#include <imgui_impl_sdl3.h>
 
-#include "util.h"
-#include "renderer.h"
-#include "camera.h"
-#include "render_flags.h"
+#include <util.h>
+#include <rendering/renderer.h>
+#include <input.h>
+#include <render_flags.h>
 
-#include "imgui_impl_sdl3.h"
-#include "imgui_impl_vulkan.h"
+#include <core/node.h>
+#include <core/scene_graph.h>
+
+#include <components/animation_player.h>
+#include <components/bone.h>
+#include <components/camera.h>
+#include <components/character_controller.h>
+#include <components/collectible.h>
+#include <components/rigid_body.h>
 
 SDL_Window* gWindow{ nullptr };
 Renderer gRenderer;
-Camera gCamera {};
-
-Uint64 previous_time {0};
-
 PerformanceStats gStats {};
-
-bool gValidationLayersEnabled { true };
+SceneGraph scene;
 vk::SampleCountFlagBits gSamples { vk::SampleCountFlagBits::e4 };
-
 auto boot_time = std::chrono::system_clock::now();
+bool gValidationLayersEnabled { true  };
+
+std::shared_ptr<Bone> target_bone;
+std::shared_ptr<Skeleton> target_skeleton;
+std::shared_ptr<AnimationPlayer> animation_player;
+std::shared_ptr<Node> player;
+
+// Just a test function, to be removed
+void on_krapfen_collected(std::shared_ptr<Node> p_node) {
+    std:print("%s collected", p_node->name.c_str());
+}
 
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     char env[] = "SDL_VIDEODRIVER=wayland";
     putenv(env);
     
     // Initialize app
-    SDL_SetAppMetadata("Prosper", "0.1", "Prosper");
+    SDL_SetAppMetadata("Prosper", "0.2", "Prosper");
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
         SDL_Log("SDL could not initialize! SDL error: %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
@@ -45,21 +58,21 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     // Create window
     SDL_PropertiesID window_props {SDL_CreateProperties()};
-    SDL_SetNumberProperty(window_props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 1920);
-    SDL_SetNumberProperty(window_props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 1080);
-    SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
+    SDL_SetNumberProperty(window_props,  SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 1920);
+    SDL_SetNumberProperty(window_props,  SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 1080);
+    SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, false);
     SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, false);
     SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
     SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
     SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN, true);
-    SDL_SetStringProperty(window_props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Prosper");
+    SDL_SetStringProperty(window_props,  SDL_PROP_WINDOW_CREATE_TITLE_STRING, "Prosper");
     gWindow = SDL_CreateWindowWithProperties(window_props);
     if (gWindow == nullptr) {
         print("Window could not be created! SDL error: %s\n", SDL_GetError());
         return SDL_APP_FAILURE;
     }
 
-    SDL_Surface* icon = SDL_LoadBMP("../../icon.bmp");
+    SDL_Surface* icon = SDL_LoadBMP("../../icon.bmp"); // TODO: ensure proper path
     if(icon == nullptr) {
         print("Could not load icon! SDL Error: %s", SDL_GetError());
     } else {
@@ -76,8 +89,43 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
     gRenderer.initialize(extensions.size(), extensions.data(), gWindow, 1920, 1080);
 
-    gRenderer.loaded_scenes["scene"] = *load_gltf_scene(&gRenderer, "../../assets/models/Sponza/glTF/Sponza.gltf");
+    // Initialize systems
+    Input::init();
 
+    // Initialize scene
+    scene.root = Node::create("root");
+    
+    auto level = load_scene("level.yaml");
+    scene.root->add_child(level);
+    level->set_scale(1.3f);
+
+    auto krapfen = load_scene("krapfen.yaml");
+    auto rigid_body = krapfen->add_component<RigidBody>();
+    auto collectible = krapfen->add_component<Collectible>();
+    collectible->collected.connect(on_krapfen_collected);
+
+    level->add_child(krapfen);
+    krapfen->set_position(3.0f, 1.0f, 0.0f);
+
+    auto camera_node = Node::create("Camera");
+    camera_node->set_position(0.0f, 1.4f, 0.0f);
+    scene.camera = camera_node->add_component<Camera>();
+    scene.root->add_child(camera_node);
+
+#define THIRD_PERSON_CHARACTER 1
+#if THIRD_PERSON_CHARACTER
+    player = load_scene("player.yaml");
+    scene.root->add_child(player);
+    auto character_controller = std::make_shared<CharacterController>();
+    player->add_component<CharacterController>(character_controller);
+
+    player->add_component<AnimationPlayer>(animation_player);
+    animation_player->skeleton->root_motion_index = 46;
+
+    scene.camera->follow_target = player;
+    scene.camera->yaw = M_PI_2;
+#endif
+    
     SDL_ShowWindow(gWindow);
     SDL_SetWindowRelativeMouseMode(gWindow, true);
     return SDL_APP_CONTINUE;
@@ -85,11 +133,10 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
 
 
 SDL_AppResult SDL_AppIterate(void *appstate) {
-
     auto start_time = std::chrono::system_clock::now();
 
-    gCamera.update(gStats.frametime / 1000.0f);
-
+    scene.update(gStats.frametime / 1000.0f);
+   
     if (gRenderer.resize_requested || true) {
         gRenderer.recreate_swapchain();
     }
@@ -100,12 +147,25 @@ SDL_AppResult SDL_AppIterate(void *appstate) {
     ImGui::NewFrame();
     
     if (ImGui::Begin("Configure")) {
-        ComputeEffect& selected = gRenderer.background_effects[gRenderer.current_background_effect];
         ImGui::CheckboxFlags("Show normals",    &gRenderer.flags, RENDER_FLAG_BIT_SHOW_NORMALS);
         ImGui::CheckboxFlags("Show metallic",   &gRenderer.flags, RENDER_FLAG_BIT_SHOW_METAL);
         ImGui::CheckboxFlags("Show roughness",  &gRenderer.flags, RENDER_FLAG_BIT_SHOW_ROUGHNESS);
         ImGui::CheckboxFlags("Show complexity", &gRenderer.flags, RENDER_FLAG_BIT_SHOW_COMPLEX_PIXELS);
         ImGui::SliderFloat("White point", &gRenderer.white_point, 0.1f, 10.0f);
+    }
+    ImGui::End();
+
+    if (ImGui::Begin("Skeleton")) {
+        static float head_size = 1.0f;
+        if (ImGui::SliderFloat("Head size", &head_size, 0.1f, 5.0f)) {
+            target_bone->node->set_scale(head_size);
+        }
+
+        static int current_item = 0;
+        std::vector<const char*> animation_list = animation_player->library.get_animation_list_cstr();
+        if (ImGui::Combo("Pose", &current_item, animation_list.data(), animation_list.size(), 50)) {
+            animation_player->play(animation_list[current_item]);
+        }
     }
     ImGui::End();
 
@@ -154,21 +214,20 @@ SDL_AppResult SDL_AppEvent(void *appsatte, SDL_Event *event) {
     if (event->type == SDL_EVENT_KEY_DOWN) {
         if (event->key.scancode == SDL_SCANCODE_ESCAPE) {
             SDL_SetWindowRelativeMouseMode(gWindow, false);
-            gCamera.controls_enabled = false;
+            scene.camera->controls_enabled = false;
         }
     }
 
     if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
         SDL_SetWindowRelativeMouseMode(gWindow, true);
-        gCamera.controls_enabled = true;
+        scene.camera->controls_enabled = true;
     }
 
-    gCamera.process_SDL_Event(*event);
-    
+    Input::process_event(*event);
+    scene.root->process_input(*event);
 
     return SDL_APP_CONTINUE;
 }
-
 
 void SDL_AppQuit(void *appstate, SDL_AppResult result) {
     gRenderer.cleanup();
