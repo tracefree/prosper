@@ -14,6 +14,7 @@ void Node::refresh_transform(Transform p_parent_transform) {
 }
 
 void Node::update(double delta) {
+    if (!active) return;
     for (auto& component : components) {
         component->update(delta);
     }
@@ -23,6 +24,7 @@ void Node::update(double delta) {
 }
 
 void Node::process_input(SDL_Event& event) {
+    if (!active) return;
     for (auto& component : components) {
         component->process_input(event);
     }
@@ -32,6 +34,7 @@ void Node::process_input(SDL_Event& event) {
 }
 
 void Node::draw(const Mat4& p_transform, DrawContext& p_context) {
+    if (!visible) return;
     for (auto& component : components) {
         component->draw(p_transform, p_context);
     }
@@ -51,6 +54,7 @@ void Node::cleanup() {
 
 void Node::add_child(std::shared_ptr<Node> p_child) {
     children.push_back(p_child);
+    p_child->parent = std::make_shared<Node>(*this);
 }
 
 Node::Node(std::string p_name) {
@@ -73,6 +77,11 @@ void Node::set_position(float p_x, float p_y, float p_z) {
 
 void Node::move(Vec3 p_vector) {
     transform.position += p_vector;
+    refresh_transform();
+}
+
+void Node::move(float p_x, float p_y, float p_z) {
+    transform.position += Vec3(p_x, p_y, p_z);;
     refresh_transform();
 }
 

@@ -8,10 +8,11 @@ struct Node;
 
 struct SceneGraph {
     std::shared_ptr<Node> root;
+    std::shared_ptr<Node> camera;
 
     std::vector<std::shared_ptr<Node>> leafs;
     std::vector<GPUPointLight> point_lights;
-    std::shared_ptr<Camera> camera;
 
     void update(double delta);
+    void cleanup();
 };

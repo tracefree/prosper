@@ -93,6 +93,7 @@ add_executable(prosper
     src/main.cpp
     src/input.cpp
     src/math.cpp
+    src/physics.cpp
     src/loader.cpp
 
     src/core/node.cpp
@@ -113,9 +114,11 @@ add_executable(prosper
     src/components/collectible.cpp
     src/components/mesh_instance.cpp
     src/components/point_light.cpp
-    src/components/rigid_body.cpp
     src/components/skeleton.cpp
     src/components/skinned_mesh.cpp
+    
+    src/components/physics/rigid_body.cpp
+    src/components/physics/static_body.cpp
 )
 
 set_property(

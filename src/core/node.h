@@ -20,11 +20,15 @@ public:
     std::vector<std::shared_ptr<Node>> children;
 
     std::vector<std::shared_ptr<Component>> components;
+    bool active  { true };
+    bool visible { true };
 
     Vec3 get_position();
     void set_position(Vec3 p_position);
     void set_position(float p_x, float p_y, float p_z);
+    
     void move(Vec3 p_vector);
+    void move(float p_x, float p_y, float p_z);
 
     float get_scale();
     void set_scale(float p_scale);

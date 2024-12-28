@@ -3,7 +3,7 @@
 const bool* Input::keyboard_state;
 
 
-void Input::init() {
+void Input::initialize() {
     if (keyboard_state != nullptr) {
         print("Warning: Input system already initialized");
         return;

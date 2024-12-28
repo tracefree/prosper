@@ -41,3 +41,5 @@ std::optional<AllocatedImage> load_image(Renderer* p_renderer, fastgltf::Asset& 
 std::string filesystem_path(std::string p_path);
 
 std::shared_ptr<Node> load_scene(std::string p_path);
+
+std::tuple<std::vector<Vec3>, std::vector<uint>> load_triangles(std::filesystem::path p_file_path);

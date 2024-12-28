@@ -13,5 +13,5 @@ public:
     static Vec2 get_movement_input();
 
     static void process_event(SDL_Event& event);
-    static void init();
+    static void initialize();
 };

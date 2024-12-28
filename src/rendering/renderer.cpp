@@ -1241,8 +1241,6 @@ bool Renderer::initialize(uint32_t p_extension_count, const char* const* p_exten
 void Renderer::cleanup() {
     cleanup_swapchain();
 
-    scene.root->cleanup();
-
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         frames[i].deletion_queue.flush();
 
@@ -1588,7 +1586,7 @@ void Renderer::update_scene() {
 
     scene.root->draw(Mat4(1.0f), draw_context);
 
-    scene_data.view = scene.camera->get_view_matrix();
+    scene_data.view = scene.camera->get_component<Camera>()->get_view_matrix();
     scene_data.projection = glm::perspective(glm::radians(70.0f), (float)draw_extent.width / (float)draw_extent.height, 1000.0f, 0.1f);
     scene_data.projection[1][1] *= -1.0f;
  

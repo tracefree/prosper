@@ -1420,3 +1420,78 @@ std::shared_ptr<Node> load_scene(std::string p_path) {
 
     return scene;
 }
+
+std::tuple<std::vector<Vec3>, std::vector<uint>> load_triangles(std::filesystem::path p_file_path) {
+    print("Loading GLTF vertices: %s", p_file_path.c_str());
+
+    fastgltf::Parser parser {};
+
+    constexpr auto gltf_options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadExternalBuffers;
+    auto data = fastgltf::GltfDataBuffer::FromPath(p_file_path);
+    if (data.error() != fastgltf::Error::None) {
+        print("Could not load GLTF!");
+        return {};
+    }
+
+    fastgltf::Asset asset;
+
+    auto type = fastgltf::determineGltfFileType(data.get());
+    if (type == fastgltf::GltfType::glTF) {
+        auto load = parser.loadGltf(data.get(), p_file_path.parent_path(), gltf_options);
+        if (load.error() != fastgltf::Error::None) {
+            print("Could not parse GLTF!");
+            return {};
+        } else {
+            asset = std::move(load.get());
+        }
+    } else if (type == fastgltf::GltfType::GLB) {
+        auto load = parser.loadGltfBinary(data.get(), p_file_path.parent_path(), gltf_options);
+        if (load.error() != fastgltf::Error::None) {
+            print("Could not parse GLTF!");
+            return {};
+        } else {
+            asset = std::move(load.get());
+        }
+    } else {
+        print("Could not parse GLTF!");
+        return {};
+    }
+
+    // Meshes
+    std::vector<uint32_t> indices;
+    std::vector<Vec3> vertices;
+
+    for (fastgltf::Mesh& mesh : asset.meshes) {
+        indices.clear();
+        vertices.clear();
+
+        for (auto&& primitive : mesh.primitives) {
+            // Vertices and indices
+            size_t initial_vertex_index = vertices.size();
+
+            // Indices
+            {
+                fastgltf::Accessor& index_accessor = asset.accessors[primitive.indicesAccessor.value()];
+                indices.resize(indices.size() + index_accessor.count);
+                fastgltf::iterateAccessor<std::uint32_t>(asset, index_accessor,
+                    [&](std::uint32_t index) {
+                        indices.push_back(index + initial_vertex_index);
+                    }
+                );
+            }
+
+            // Positions
+            {
+                fastgltf::Accessor& position_accessor = asset.accessors[primitive.findAttribute("POSITION")->accessorIndex];
+                vertices.resize(vertices.size() + position_accessor.count);
+                fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, position_accessor,
+                    [&](glm::vec3 vector, size_t index) {
+                        vertices[initial_vertex_index + index] = 0.0104f * vector;
+                    }
+                );
+            }
+        }
+    }
+
+    return {vertices, indices};
+}
