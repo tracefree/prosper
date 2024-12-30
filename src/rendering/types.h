@@ -15,11 +15,11 @@ struct ShaderObject;
 
 struct AllocatedImage {
     std::optional<ktxVulkanTexture> ktx_texture;
-    Image image;
-    ImageView image_view;
-    Format image_format;
+    vk::Image image;
+    vk::ImageView image_view;
+    vk::Format image_format;
     VmaAllocation allocation;
-    Extent3D image_extent;
+    vk::Extent3D image_extent;
 };
 
 struct AllocatedBuffer {
@@ -56,18 +56,6 @@ struct GPUPointLight {
     float intensity;
     Vec3 color;
     float _padding1;
-};
-
-struct GPUMeshBuffers {
-    AllocatedBuffer index_buffer;
-    AllocatedBuffer vertex_buffer;
-    AllocatedBuffer skinned_vertex_buffer;
-    AllocatedBuffer skinning_data_buffer;
-    AllocatedBuffer joint_matrices_buffer;
-    DeviceAddress vertex_buffer_address;
-    DeviceAddress skinned_vertex_buffer_address;
-    DeviceAddress skinning_data_buffer_address;
-    DeviceAddress joint_matrices_buffer_address;
 };
 
 struct GPUDrawPushConstants {
@@ -119,19 +107,6 @@ struct MaterialInstance {
     MaterialPipeline* pipeline;
     DescriptorSet material_set;
     MaterialPass pass_type;
-};
-
-struct MeshSurface {
-    uint32_t start_index;
-    uint32_t count;
-    std::shared_ptr<MaterialInstance> material;
-};
-
-struct MeshAsset {
-    std::string name;
-    uint32_t vertex_count {0};
-    std::vector<MeshSurface> surfaces;
-    GPUMeshBuffers mesh_buffers;
 };
 
 struct RenderObject {

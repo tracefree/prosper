@@ -2,7 +2,7 @@
 
 
 void SkinnedMesh::draw(const Mat4& p_transform, DrawContext& p_context) {
-    if (mesh == nullptr) {
+    if (&mesh == nullptr) {
         return;
     }
     p_context.skinned_meshes.emplace_back(SkinningPushConstants {

@@ -97,6 +97,7 @@ add_executable(prosper
     src/loader.cpp
 
     src/core/node.cpp
+   # src/core/resource.cpp
     src/core/scene_graph.cpp
 
     src/rendering/descriptors.cpp
@@ -106,6 +107,8 @@ add_executable(prosper
     src/rendering/vma_usage.cpp
     
     src/resources/animation.cpp
+    src/resources/mesh.cpp
+    src/resources/texture.cpp
 
     src/components/animation_player.cpp
     src/components/bone.cpp

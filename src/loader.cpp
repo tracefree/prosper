@@ -10,6 +10,8 @@
 #include <components/point_light.h>
 #include <components/skinned_mesh.h>
 #include <core/node.h>
+#include <resources/mesh.h>
+#include <resources/texture.h>
 
 #include <stb_image.h>
 #include <iostream>
@@ -17,6 +19,7 @@
 #include <span>
 
 #include <variant>
+#include <print>
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
@@ -75,321 +78,6 @@ SamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
         return SamplerMipmapMode::eLinear;
     }
 }
-
-
-std::optional<std::shared_ptr<Node>> load_gltf_scene(Renderer* p_renderer, std::filesystem::path p_file_path) {
-    print("Loading GLTF: %s", p_file_path.c_str());
-    std::shared_ptr<LoadedGLTF> model_data = std::make_shared<LoadedGLTF>();
-    model_data->renderer = p_renderer;
-    LoadedGLTF& file = *model_data.get();
-
-    fastgltf::Parser parser {};
-
-    constexpr auto gltf_options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadExternalBuffers;
-    auto data = fastgltf::GltfDataBuffer::FromPath(p_file_path);
-    if (data.error() != fastgltf::Error::None) {
-        print("Could not load GLTF!");
-        return {};
-    }
-
-    fastgltf::Asset asset;
-
-    auto type = fastgltf::determineGltfFileType(data.get());
-    if (type == fastgltf::GltfType::glTF) {
-        auto load = parser.loadGltf(data.get(), p_file_path.parent_path(), gltf_options);
-        if (load.error() != fastgltf::Error::None) {
-            print("Could not parse GLTF!");
-            return {};
-        } else {
-            asset = std::move(load.get());
-        }
-    } else if (type == fastgltf::GltfType::GLB) {
-        auto load = parser.loadGltfBinary(data.get(), p_file_path.parent_path(), gltf_options);
-        if (load.error() != fastgltf::Error::None) {
-            print("Could not parse GLTF!");
-            return {};
-        } else {
-            asset = std::move(load.get());
-        }
-    } else {
-        print("Could not parse GLTF!");
-        return {};
-    }
-
-    std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
-        { DescriptorType::eCombinedImageSampler, 3},
-        { DescriptorType::eUniformBuffer, 3},
-        { DescriptorType::eStorageBuffer, 1}
-    };
-
-    file.descriptor_pool.init_pool(p_renderer->device, asset.materials.size(), sizes);
-
-    for (fastgltf::Sampler& sampler : asset.samplers) {
-        SamplerCreateInfo sampler_info {
-            .magFilter = extract_filter(sampler.magFilter.value_or(fastgltf::Filter::Nearest)),
-            .minFilter = extract_filter(sampler.minFilter.value_or(fastgltf::Filter::Nearest)),
-            .mipmapMode = extract_mipmap_mode(sampler.minFilter.value_or(fastgltf::Filter::Nearest)),
-            .addressModeU = extract_address_mode(sampler.wrapS),
-            .addressModeV = extract_address_mode(sampler.wrapT),
-            .minLod = 0,
-            .maxLod = LodClampNone,
-        };
-
-        auto[result, new_sampler] = p_renderer->device.createSampler(sampler_info);
-
-        file.samplers.push_back(new_sampler);
-    }
-
-    std::vector<std::optional<AllocatedImage>> temp_textures;
-    std::vector<std::shared_ptr<MaterialInstance>> temp_materials;
-    std::vector<std::shared_ptr<MeshAsset>> temp_meshes;
-    std::vector<std::shared_ptr<Node>> temp_nodes;
-
-    // Textures
-    // Only load texture when first used in a material so we can select correct format (sRGB or linear) based on usage.
-    temp_textures.resize(asset.images.size());
-
-    // Materials
-    file.material_data_buffer = p_renderer->create_buffer(
-        sizeof(MaterialMetallicRoughness::MaterialConstants) * asset.materials.size(),
-        BufferUsageFlagBits::eUniformBuffer,
-        VMA_MEMORY_USAGE_CPU_TO_GPU
-    );
-    
-    uint32_t data_index = 0;
-    MaterialMetallicRoughness::MaterialConstants* scene_material_constants = (MaterialMetallicRoughness::MaterialConstants*) file.material_data_buffer.info.pMappedData;
-
-    for (fastgltf::Material& temp_material : asset.materials) {
-        std::shared_ptr<MaterialInstance> new_material = std::make_shared<MaterialInstance>();
-        temp_materials.push_back(new_material);
-        file.materials[temp_material.name.c_str()] = new_material;
-
-        MaterialMetallicRoughness::MaterialConstants constants {
-            .albedo_factors = Vec4(
-                (float)temp_material.pbrData.baseColorFactor[0],
-                (float)temp_material.pbrData.baseColorFactor[1],
-                (float)temp_material.pbrData.baseColorFactor[2],
-                (float)temp_material.pbrData.baseColorFactor[3]
-            ),
-            .metal_roughness_factors = Vec4(
-                (float)temp_material.pbrData.metallicFactor,
-                (float)temp_material.pbrData.roughnessFactor,
-                0.0f, 0.0f
-            )
-        };
-        
-        scene_material_constants[data_index] = constants;
-
-        MaterialPass pass_type = (temp_material.alphaMode == fastgltf::AlphaMode::Blend) ? MaterialPass::Transparent : MaterialPass::MainColor;
-        PhysicalDeviceProperties physical_device_properties = p_renderer->physical_device.getProperties();
-        
-        uint32_t min_offset_multiplier = ceilf(float(sizeof(MaterialMetallicRoughness::MaterialResources)) / float(physical_device_properties.limits.minUniformBufferOffsetAlignment));
-
-        MaterialMetallicRoughness::MaterialResources material_resources {
-            .albedo_texture = p_renderer->image_white,
-            .albedo_sampler = p_renderer->sampler_default_nearest,
-            .normal_texture = p_renderer->image_default_normal,
-            .normal_sampler = p_renderer->sampler_default_nearest,
-            .metal_roughness_texture = p_renderer->image_white,
-            .metal_roughness_sampler = p_renderer->sampler_default_linear,
-            .data_buffer = file.material_data_buffer.buffer,
-            .data_buffer_offset = data_index * min_offset_multiplier * uint32_t(physical_device_properties.limits.minUniformBufferOffsetAlignment),
-        };
-
-        if (temp_material.pbrData.baseColorTexture.has_value()) {
-            size_t image_index   = asset.textures[temp_material.pbrData.baseColorTexture.value().textureIndex].imageIndex.value();
-            size_t sampler_index = asset.textures[temp_material.pbrData.baseColorTexture.value().textureIndex].samplerIndex.value();
-
-            if (!temp_textures[image_index].has_value()) {
-                temp_textures[image_index] = load_image(p_renderer, asset, asset.images[image_index], Format::eR8G8B8A8Srgb);
-                std::string texture_id = std::to_string(image_index);
-                file.textures[texture_id.c_str()] = *temp_textures[image_index];
-            }
-            material_resources.albedo_texture = temp_textures[image_index].value_or(p_renderer->image_white);
-            material_resources.albedo_sampler = file.samplers[sampler_index];
-        }
-
-        if (temp_material.normalTexture.has_value()) {
-            size_t image_index   = asset.textures[temp_material.normalTexture.value().textureIndex].imageIndex.value();
-            size_t sampler_index = asset.textures[temp_material.normalTexture.value().textureIndex].samplerIndex.value();
-
-            if (!temp_textures[image_index].has_value()) {
-                temp_textures[image_index] = load_image(p_renderer, asset, asset.images[image_index]);
-                std::string texture_id = std::to_string(image_index);
-                file.textures[texture_id.c_str()] = *temp_textures[image_index];
-            }
-            material_resources.normal_texture = temp_textures[image_index].value_or(p_renderer->image_default_normal);
-            material_resources.normal_sampler = file.samplers[sampler_index];
-        }
-
-        if (temp_material.pbrData.metallicRoughnessTexture.has_value()) {
-            size_t image_index   = asset.textures[temp_material.pbrData.metallicRoughnessTexture.value().textureIndex].imageIndex.value();
-            size_t sampler_index = asset.textures[temp_material.pbrData.metallicRoughnessTexture.value().textureIndex].samplerIndex.value();
-
-            if (!temp_textures[image_index].has_value()) {
-                temp_textures[image_index] = load_image(p_renderer, asset, asset.images[image_index]);
-                std::string texture_id = std::to_string(image_index);
-                file.textures[texture_id.c_str()] = *temp_textures[image_index];
-            }
-            material_resources.metal_roughness_texture = temp_textures[image_index].value_or(p_renderer->image_white);
-            material_resources.metal_roughness_sampler = file.samplers[sampler_index];
-        }
-
-        *new_material = p_renderer->metal_roughness_material.write_material(p_renderer->device, pass_type, material_resources, file.descriptor_pool);
-        data_index++;
-    }
-
-    // Meshes
-    std::vector<uint32_t> indices;
-    std::vector<Vertex> vertices;
-
-    for (fastgltf::Mesh& mesh : asset.meshes) {
-        std::shared_ptr<MeshAsset> new_mesh = std::make_shared<MeshAsset>();
-        temp_meshes.push_back(new_mesh);
-        file.meshes[mesh.name.c_str()] = new_mesh;
-        new_mesh->name = mesh.name;
-
-        indices.clear();
-        vertices.clear();
-
-        for (auto&& primitive : mesh.primitives) {
-            // Surfaces
-            MeshSurface new_surface;
-            new_surface.start_index = (uint32_t) indices.size();
-            new_surface.count = (uint32_t) asset.accessors[primitive.indicesAccessor.value()].count;
-            if (primitive.materialIndex.has_value()) {
-                new_surface.material = temp_materials[primitive.materialIndex.value()];
-            } else {
-                new_surface.material = temp_materials[0];
-            }
-            new_mesh->surfaces.push_back(new_surface);
-
-            // Vertices and indices
-            size_t initial_vertex_index = vertices.size();
-
-            // Indices
-            {
-                fastgltf::Accessor& index_accessor = asset.accessors[primitive.indicesAccessor.value()];
-                indices.reserve(indices.size() + index_accessor.count);
-                fastgltf::iterateAccessor<std::uint32_t>(asset, index_accessor,
-                    [&](std::uint32_t index) {
-                        indices.push_back(index + initial_vertex_index);
-                    }
-                );
-            }
-
-            // Positions
-            {
-                fastgltf::Accessor& position_accessor = asset.accessors[primitive.findAttribute("POSITION")->accessorIndex];
-                vertices.reserve(vertices.size() + position_accessor.count);
-
-                fastgltf::iterateAccessorWithIndex<glm::vec3>(asset, position_accessor,
-                    [&](glm::vec3 vector, size_t index) {
-                        Vertex new_vertex {
-                            .position = vector,
-                            .uv_x = 0.0f,
-                            .normal = { 1.0f, 0.0f, 0.0f },
-                            .uv_y = 0.0f,
-                            .color = Vec4(1.0f),
-                        };
-                        vertices[initial_vertex_index + index] = new_vertex;
-                    }
-                );
-            }
-
-            // Normals
-            auto normals = primitive.findAttribute("NORMAL");
-            if (normals != primitive.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<Vec3>(asset, asset.accessors[(*normals).accessorIndex],
-                    [&](Vec3 normal, size_t index) {
-
-                        vertices[initial_vertex_index + index].normal = glm::normalize(normal);
-                    }
-                );
-            }
-
-            auto tangents = primitive.findAttribute("TANGENT");
-            if (tangents != primitive.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<Vec4>(asset, asset.accessors[(*tangents).accessorIndex],
-                    [&](Vec4 tangent, size_t index) {
-                        vertices[initial_vertex_index + index].tangent = tangent;
-                    }
-                );
-            }
-
-            // UV
-            auto tex_coord = primitive.findAttribute("TEXCOORD_0");
-            if (tex_coord != primitive.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<Vec2>(asset, asset.accessors[(*tex_coord).accessorIndex],
-                    [&](Vec2 uv, size_t index) {
-                        vertices[initial_vertex_index + index].uv_x = uv.x;
-                        vertices[initial_vertex_index + index].uv_y = uv.y;
-                    }
-                );
-            }
-
-            // Color
-            auto color_attribute = primitive.findAttribute("COLOR_1");
-            if (color_attribute != primitive.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<Vec4>(asset, asset.accessors[(*color_attribute).accessorIndex],
-                    [&](Vec4 color, size_t index) {
-                        vertices[initial_vertex_index + index].color = color;
-                    }
-                );
-            }
-        }
-
-        new_mesh->mesh_buffers = p_renderer->upload_mesh(indices, vertices);
-        new_mesh->vertex_count = vertices.size();
-    }
-
-    // Nodes
-    for (fastgltf::Node& node : asset.nodes) {
-        auto new_node = Node::create();
-        if (node.meshIndex.has_value()) {   
-            auto mesh_instance = std::make_shared<MeshInstance>(temp_meshes[*node.meshIndex]);
-            new_node->add_component<MeshInstance>(mesh_instance);
-        }
-
-        temp_nodes.push_back(new_node);
-        
-        std::visit(fastgltf::visitor {
-            [&](fastgltf::math::fmat4x4 matrix) {
-                assert(false);
-            },
-            [&](fastgltf::TRS p_transform) {
-                new_node->set_position(p_transform.translation[0], p_transform.translation[1], p_transform.translation[2]);
-                new_node->set_rotation(glm::quat(p_transform.rotation[3], p_transform.rotation[0], p_transform.rotation[1], p_transform.rotation[2]));
-                new_node->set_scale(p_transform.scale[0]); // Only uniform scale supported so far
-            }}, node.transform
-        );
-    }
-
-    for (uint32_t i = 0; i< asset.nodes.size(); i++) {
-        fastgltf::Node& node = asset.nodes[i];
-        std::shared_ptr<Node>& scene_node = temp_nodes[i];
-        for (auto& child : node.children) {
-            scene_node->add_child(temp_nodes[child]);
-            temp_nodes[child]->parent = scene_node;
-        }
-    }
-
-    if (temp_nodes.size() == 1) {
-        temp_nodes[0]->add_component<LoadedGLTF>(model_data);
-        temp_nodes[0]->refresh_transform(Transform());
-        return temp_nodes[0];
-    }
-    auto scene = Node::create();
-    scene->add_component<LoadedGLTF>(model_data);
-    for (auto& node : temp_nodes) {
-        if (node->parent.lock() == nullptr) {
-            scene->add_child(node);
-        }
-    }
-    scene->refresh_transform(Transform());
-    return scene->children[0];
-}
-
 
 std::optional<AllocatedImage> load_image(Renderer* p_renderer, std::filesystem::path p_file_path, Format p_format) {
     AllocatedImage new_image {};
@@ -533,6 +221,9 @@ void LoadedGLTF::cleanup() {
     renderer->destroy_buffer(material_data_buffer);
 
     for (auto& [key, value] : meshes) {
+        Resource<Mesh>::get(value).unreference();
+        //value.unreference();
+        /*
         renderer->destroy_buffer(value->mesh_buffers.index_buffer);
         renderer->destroy_buffer(value->mesh_buffers.vertex_buffer);
         renderer->destroy_buffer(value->mesh_buffers.skinned_vertex_buffer);
@@ -542,6 +233,7 @@ void LoadedGLTF::cleanup() {
         if (value->mesh_buffers.joint_matrices_buffer.buffer != VK_NULL_HANDLE) {
             renderer->destroy_buffer(value->mesh_buffers.joint_matrices_buffer);
         }
+        */
     }
 
     for (auto& [key, value] : textures) {
@@ -560,7 +252,11 @@ void LoadedGLTF::cleanup() {
 void LoadedGLTF::load(std::string p_path) {
     print("Loading imported GLTF: %s", p_path.c_str());
     std::fstream file(p_path, std::fstream::in | std::fstream::binary);
-    meshes[""] = std::make_shared<MeshAsset>();
+    
+    auto mesh_guid = std::format("{}::/meshes/{}", p_path.c_str(), "x");
+    meshes["x"] = mesh_guid;
+    auto& mesh = Resource<Mesh>::get(mesh_guid);
+    
     materials["default"] = std::make_shared<MaterialInstance>(gRenderer.default_material);
 
     // Samplers
@@ -771,106 +467,117 @@ void LoadedGLTF::load(std::string p_path) {
         animation_player->library = animation_library;
     }
 
-    // Surfaces
-    while (true) {
-        std::getline(file, line);
-        if (line == "") {
-            break;
+    // Meshes
+    if (!mesh.loaded()) {
+        std::println("Loading mesh: {}", mesh_guid.c_str());
+
+        // Surfaces
+        while (true) {
+            std::getline(file, line);
+            if (line == "") {
+                break;
+            }
+            uint32_t start_index = std::stoi(line);
+            std::getline(file, line);
+            uint32_t count = std::stoi(line);
+            std::getline(file, line);
+            uint32_t material_index = std::stoi(line);
+            mesh->surfaces.emplace_back(MeshSurface {
+                start_index,
+                count,
+                materials[std::to_string(material_index)],
+            });
         }
-        uint32_t start_index = std::stoi(line);
+
+        // Vertex data
         std::getline(file, line);
-        uint32_t count = std::stoi(line);
+        uint32_t vertex_count = std::stoi(line);
         std::getline(file, line);
-        uint32_t material_index = std::stoi(line);
-        meshes[""]->surfaces.emplace_back(MeshSurface {
-            start_index,
-            count,
-            materials[std::to_string(material_index)],
-        });
-    }
+        uint32_t index_count = std::stoi(line);
+        std::getline(file, line);
+        uint32_t skinning_data_count = std::stoi(line);
+        std::getline(file, line);
+        uint32_t joint_count = std::stoi(line);
 
-    // Vertex data
-    std::getline(file, line);
-    uint32_t vertex_count = std::stoi(line);
-    std::getline(file, line);
-    uint32_t index_count = std::stoi(line);
-    std::getline(file, line);
-    uint32_t skinning_data_count = std::stoi(line);
-    std::getline(file, line);
-    uint32_t joint_count = std::stoi(line);
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> indices;
+        std::vector<SkinningData> skinning_data;
+        std::vector<JointData> joint_data;
 
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
-    std::vector<SkinningData> skinning_data;
-    std::vector<JointData> joint_data;
+        vertices.resize(vertex_count);
+        indices.resize(index_count);
+        skinning_data.resize(skinning_data_count);
+        joint_data.resize(joint_count);
+        
+        file.read(reinterpret_cast<char*>(vertices.data()), vertex_count * sizeof(Vertex));
+        file.read(reinterpret_cast<char*>(indices.data()), index_count * sizeof(uint32_t));
+        file.read(reinterpret_cast<char*>(skinning_data.data()), skinning_data_count * sizeof(SkinningData));
+        file.read(reinterpret_cast<char*>(joint_data.data()), joint_count * sizeof(JointData));
 
-    vertices.resize(vertex_count);
-    indices.resize(index_count);
-    skinning_data.resize(skinning_data_count);
-    joint_data.resize(joint_count);
-    
-    file.read(reinterpret_cast<char*>(vertices.data()), vertex_count * sizeof(Vertex));
-    file.read(reinterpret_cast<char*>(indices.data()), index_count * sizeof(uint32_t));
-    file.read(reinterpret_cast<char*>(skinning_data.data()), skinning_data_count * sizeof(SkinningData));
-    file.read(reinterpret_cast<char*>(joint_data.data()), joint_count * sizeof(JointData));
+        auto skeleton_node = Node::create("Skeleton");
+        auto skeleton = std::make_shared<Skeleton>();
+        skeleton->joint_matrices.resize(joint_count);
+        skeleton_node->add_component<Skeleton>(skeleton);
+        
+        skeleton->bones.resize(joint_count);
+        target_skeleton = skeleton;
 
-    auto skeleton_node = Node::create("Skeleton");
-    auto skeleton = std::make_shared<Skeleton>();
-    skeleton->joint_matrices.resize(joint_count);
-    skeleton_node->add_component<Skeleton>(skeleton);
-    
-    skeleton->bones.resize(joint_count);
-    target_skeleton = skeleton;
-
-    std::vector<Mat4> joint_matrices;
-    joint_matrices.resize(joint_count);
-    for (int i = 0; i < joint_count; i++) {
-        skeleton->bones[i] = Node::create("Bone");
-        auto bone = std::make_shared<Bone>();
-        bone->skeleton = skeleton;
-        bone->index = i;
-        bone->inverse_bind_matrix = joint_data[i].inverse_bind_matrix;
-        skeleton->bones[i]->add_component<Bone>(bone);
-        skeleton->bones[i]->set_position(joint_data[i].position);
-        skeleton->bones[i]->set_rotation(joint_data[i].rotation);
-        skeleton->bones[i]->set_scale(joint_data[i].scale);
-        if (i == 20) {
-            target_bone = bone;
+        std::vector<Mat4> joint_matrices;
+        joint_matrices.resize(joint_count);
+        for (int i = 0; i < joint_count; i++) {
+            skeleton->bones[i] = Node::create("Bone");
+            auto bone = std::make_shared<Bone>();
+            bone->skeleton = skeleton;
+            bone->index = i;
+            bone->inverse_bind_matrix = joint_data[i].inverse_bind_matrix;
+            skeleton->bones[i]->add_component<Bone>(bone);
+            skeleton->bones[i]->set_position(joint_data[i].position);
+            skeleton->bones[i]->set_rotation(joint_data[i].rotation);
+            skeleton->bones[i]->set_scale(joint_data[i].scale);
+            if (i == 20) {
+                target_bone = bone;
+            }
         }
-    }
 
-    for (int i = 0; i < joint_count; i++) {
-        if (joint_data[i].parent_index == -1) {
-            skeleton_node->add_child(skeleton->bones[i]);
+        for (int i = 0; i < joint_count; i++) {
+            if (joint_data[i].parent_index == -1) {
+                skeleton_node->add_child(skeleton->bones[i]);
+            } else {
+                skeleton->bones[joint_data[i].parent_index]->add_child(skeleton->bones[i]);
+            }
+        }
+
+        skeleton_node->refresh_transform(Transform());
+        if (animation_player != nullptr) {
+            animation_player->skeleton = skeleton;
+        }
+
+        for (int i = 0; i < joint_count; i++) {
+            joint_matrices[i] = skeleton->bones[i]->get_global_transform().get_matrix() * joint_data[i].inverse_bind_matrix;
+        }
+        
+        if (skinning_data.size() > 0) {
+            mesh->mesh_buffers = gRenderer.upload_mesh(indices, vertices, skinning_data, joint_matrices);
+            skeleton->joint_matrices_buffer = &mesh->mesh_buffers.joint_matrices_buffer;
+            node->add_child(skeleton_node);
         } else {
-            skeleton->bones[joint_data[i].parent_index]->add_child(skeleton->bones[i]);
+            mesh->mesh_buffers = gRenderer.upload_mesh(indices, vertices);
         }
-    }
-
-    skeleton_node->refresh_transform(Transform());
-    if (animation_player != nullptr) {
-        animation_player->skeleton = skeleton;
-    }
-
-    for (int i = 0; i < joint_count; i++) {
-        joint_matrices[i] = skeleton->bones[i]->get_global_transform().get_matrix() * joint_data[i].inverse_bind_matrix;
-    }
-    
-    if (skinning_data.size() > 0) {
-        meshes[""]->mesh_buffers = gRenderer.upload_mesh(indices, vertices, skinning_data, joint_matrices);
-        skeleton->joint_matrices_buffer = &meshes[""]->mesh_buffers.joint_matrices_buffer;
-        node->add_child(skeleton_node);
+        
+        mesh->vertex_count = vertices.size();
+        mesh.set_load_status(LoadStatus::LOADED);
+        mesh.reference();
+        Resource<Mesh>::resources[mesh_guid].set_load_status(LoadStatus::LOADED);
     } else {
-        meshes[""]->mesh_buffers = gRenderer.upload_mesh(indices, vertices);
+        std::println("Reusing mesh: {}", mesh_guid.c_str());
+        mesh.reference();
     }
-    
-    meshes[""]->vertex_count = vertices.size();
     
     file.close();
 
     // Nodes
-    auto mesh_instance = std::make_shared<MeshInstance>(meshes[""]);
-    node->add_component<MeshInstance>(mesh_instance);
+    auto mesh_instance = node->add_component<MeshInstance>();
+    mesh_instance->mesh = mesh;
     node->refresh_transform(Transform());
 }
 

@@ -27,6 +27,6 @@ std::string MeshInstance::get_name() {
     return "MeshInstance";
 }
 
-MeshInstance::MeshInstance(std::shared_ptr<MeshAsset> p_mesh) {
+MeshInstance::MeshInstance(Resource<Mesh> p_mesh) {
     mesh = p_mesh;
 }

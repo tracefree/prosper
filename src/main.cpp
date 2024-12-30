@@ -14,6 +14,7 @@
 #include <render_flags.h>
 
 #include <core/node.h>
+#include <core/resource.h>
 #include <core/scene_graph.h>
 
 #include <components/animation_player.h>
@@ -125,7 +126,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     
     auto rigid_body2 = krapfen2->add_component<RigidBody>();
     rigid_body2->shape = new JPH::BoxShape(JPH::Vec3(0.1, 0.1, 0.1));
-    krapfen->set_position(3.0f, 5.0f, 0.0f);
     rigid_body2->initialize();
     scene.root->add_child(krapfen2);
 
@@ -158,7 +158,6 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char **argv) {
     auto camera_node = Node::create("Camera");
     camera_node->set_position(0.0f, 1.4f, 0.0f);
     auto camera = camera_node->add_component<Camera>();
-    
     
     scene.camera = camera_node;
     scene.root->add_child(camera_node);

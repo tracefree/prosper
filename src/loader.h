@@ -1,21 +1,23 @@
 #pragma once
 
+#include <util.h>
+#include <core/component.h>
+#include <core/resource.h>
+#include <rendering/types.h>
+#include <rendering/descriptors.h>
+#include <resources/animation.h>
+#include <resources/mesh.h>
+
 #include <memory>
 #include <unordered_map>
 #include <filesystem>
 #include <fastgltf/core.hpp>
 
-#include <rendering/types.h>
-#include <rendering/descriptors.h>
-#include <util.h>
-#include <resources/animation.h>
-#include <core/component.h>
 
 class Renderer;
 
-
 struct LoadedGLTF : public Component {
-    std::unordered_map<std::string, std::shared_ptr<MeshAsset>> meshes;
+    std::unordered_map<std::string, std::string> meshes;
     std::unordered_map<std::string, AllocatedImage> textures;
     std::unordered_map<std::string, std::shared_ptr<MaterialInstance>> materials;
 

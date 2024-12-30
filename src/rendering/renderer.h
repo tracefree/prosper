@@ -13,7 +13,8 @@
 #include <rendering/types.h>
 #include <rendering/descriptors.h>
 #include <rendering/shader_object.h>
-
+#include <resources/mesh.h>
+#include <resources/texture.h>
 
 const int MAX_FRAMES_IN_FLIGHT = 2;
 

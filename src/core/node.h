@@ -5,6 +5,7 @@
 #include <SDL3/SDL_events.h>
 #include <string>
 #include <core/component.h>
+#include <type_traits>
 
 struct Node {
 protected:
@@ -41,15 +42,17 @@ public:
 
     void add_child(std::shared_ptr<Node> p_child);
 
-    template <typename T> void add_component(std::shared_ptr<T> p_component) {
-        static_assert(std::is_base_of<Component, T>::value, "T must derive from Component");
+    template<typename T>
+    std::enable_if_t<std::is_base_of_v<Component, T>, void>
+    add_component(std::shared_ptr<T> p_component) {
         p_component->node = this;
         components.push_back(p_component);
         component_table[&typeid(T)] = p_component;
     }
     
-    template <typename T> std::shared_ptr<T> add_component() {
-        static_assert(std::is_base_of<Component, T>::value, "T must derive from Component");
+    template<typename T>
+    std::enable_if_t<std::is_base_of_v<Component, T>, std::shared_ptr<T>>
+    add_component() {
         auto component = std::make_shared<T>();
         component->node = this;
         components.push_back(component);
@@ -58,8 +61,9 @@ public:
         return component;
     }
 
-    template <typename T> std::shared_ptr<T> get_component() {
-        static_assert(std::is_base_of<Component, T>::value, "T must derive from Component");
+    template<typename T>
+    std::enable_if_t<std::is_base_of_v<Component, T>, std::shared_ptr<T>>
+    get_component() {
         return static_pointer_cast<T>(component_table[&typeid(T)]);
     }
 
