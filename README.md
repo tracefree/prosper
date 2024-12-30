@@ -31,7 +31,7 @@ Rendering:
 General game engine features:
 - [x] Basic character controller with third person camera
 - [x] Make-shift scene format based on .yaml files 
-- [ ] Integrating the Jolt physics engine
+- [x] Integrating the Jolt physics engine
 - [x] Observer pattern with signals
 - [x] Node / component system
 - [ ] Modding support
