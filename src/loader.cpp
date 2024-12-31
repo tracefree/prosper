@@ -10,6 +10,7 @@
 #include <components/point_light.h>
 #include <components/skinned_mesh.h>
 #include <core/node.h>
+#include <core/resource_manager.h>
 #include <resources/mesh.h>
 #include <resources/texture.h>
 
@@ -221,7 +222,7 @@ void LoadedGLTF::cleanup() {
     renderer->destroy_buffer(material_data_buffer);
 
     for (auto& [key, value] : meshes) {
-        Resource<Mesh>::get(value).unreference();
+        value->unreference();
         //value.unreference();
         /*
         renderer->destroy_buffer(value->mesh_buffers.index_buffer);
@@ -236,12 +237,8 @@ void LoadedGLTF::cleanup() {
         */
     }
 
-    for (auto& [key, value] : textures) {
-        if (value.image == renderer->image_error.image) { continue; }
-        if (value.image == renderer->image_white.image) { continue; }
-        if (value.image == renderer->image_black.image) { continue; }
-        if (value.image == renderer->image_default_normal.image) { continue; }
-        renderer->destroy_image(value);
+    for (auto& texture : textures) {
+        (*texture).unreference();
     }
 
     for (auto& sampler : samplers) {
@@ -254,8 +251,8 @@ void LoadedGLTF::load(std::string p_path) {
     std::fstream file(p_path, std::fstream::in | std::fstream::binary);
     
     auto mesh_guid = std::format("{}::/meshes/{}", p_path.c_str(), "x");
-    meshes["x"] = mesh_guid;
-    auto& mesh = Resource<Mesh>::get(mesh_guid);
+    meshes["x"] = ResourceManager::get<Mesh>(mesh_guid.c_str());
+    auto& mesh = *meshes["x"];
     
     materials["default"] = std::make_shared<MaterialInstance>(gRenderer.default_material);
 
@@ -333,11 +330,11 @@ void LoadedGLTF::load(std::string p_path) {
         scene_material_constants[material_index] = constants;
         
         MaterialMetallicRoughness::MaterialResources material_resources {
-            .albedo_texture = gRenderer.image_white,
+            .albedo_texture = ResourceManager::get<Texture>("::image_white"),
             .albedo_sampler = gRenderer.sampler_default_nearest,
-            .normal_texture = gRenderer.image_default_normal,
+            .normal_texture = ResourceManager::get<Texture>("::image_default_normal"),
             .normal_sampler = gRenderer.sampler_default_nearest,
-            .metal_roughness_texture = gRenderer.image_white,
+            .metal_roughness_texture = ResourceManager::get<Texture>("::image_white"),
             .metal_roughness_sampler = gRenderer.sampler_default_linear,
             .data_buffer = material_data_buffer.buffer,
             .data_buffer_offset = material_index * (uint32_t)sizeof(MaterialMetallicRoughness::MaterialConstants),
@@ -347,15 +344,17 @@ void LoadedGLTF::load(std::string p_path) {
         std::getline(file, line);
         int albedo_image_index = std::stoi(line);
         if (albedo_image_index > -1) {
-            AllocatedImage texture;
-            if (temp_textures[albedo_image_index].has_value()) {
-                texture = temp_textures[albedo_image_index].value();
+            auto texture_guid = texture_paths[albedo_image_index].c_str();
+            material_resources.albedo_texture = ResourceManager::get<Texture>(texture_guid);
+            auto &tex = *material_resources.albedo_texture;
+            if (!tex.loaded()) {
+                ResourceManager::load<Texture>(texture_guid, vk::Format::eR8G8B8A8Srgb);
+                tex.set_load_status(LoadStatus::LOADED);
             } else {
-                texture = load_image(&gRenderer, texture_paths[albedo_image_index], Format::eR8G8B8A8Srgb).value_or(gRenderer.image_white);
-                temp_textures[albedo_image_index] = texture;
+                std::println("Reusing texture: {}", texture_guid);
             }
-            textures[std::to_string(albedo_image_index)] = texture;
-            material_resources.albedo_texture = texture;
+            tex.reference();
+            textures.push_back(material_resources.albedo_texture);
         }
         std::getline(file, line);
         int albedo_sampler_index = std::stoi(line);
@@ -367,15 +366,15 @@ void LoadedGLTF::load(std::string p_path) {
         std::getline(file, line);
         int normal_image_index = std::stoi(line);
         if (normal_image_index > -1) {
-            AllocatedImage texture;
-            if (temp_textures[normal_image_index].has_value()) {
-                texture = temp_textures[normal_image_index].value();
+            auto texture_guid = texture_paths[normal_image_index].c_str();
+            material_resources.normal_texture = ResourceManager::get<Texture>(texture_guid);
+            if (!material_resources.normal_texture->loaded()) {
+                ResourceManager::load<Texture>(texture_guid, vk::Format::eR8G8B8A8Unorm);
             } else {
-                texture = load_image(&gRenderer, texture_paths[normal_image_index], Format::eR8G8B8A8Unorm).value_or(gRenderer.image_default_normal);
-                temp_textures[normal_image_index] = texture;
+                std::println("Reusing texture: {}", texture_guid);
             }
-            textures[std::to_string(normal_image_index)] = texture;
-            material_resources.normal_texture = texture;
+            material_resources.normal_texture->reference();
+            textures.push_back(material_resources.normal_texture);
         }
         std::getline(file, line);
         int normal_sampler_index = std::stoi(line);
@@ -387,15 +386,15 @@ void LoadedGLTF::load(std::string p_path) {
         std::getline(file, line);
         int metal_roughness_image_index = std::stoi(line);
         if (metal_roughness_image_index > -1) {
-            AllocatedImage texture;
-            if (temp_textures[metal_roughness_image_index].has_value()) {
-                texture = temp_textures[metal_roughness_image_index].value();
+            auto texture_guid = texture_paths[metal_roughness_image_index].c_str();
+            material_resources.metal_roughness_texture = ResourceManager::get<Texture>(texture_guid);
+            if (!material_resources.metal_roughness_texture->loaded()) {
+                ResourceManager::load<Texture>(texture_guid, vk::Format::eR8G8B8A8Unorm);
             } else {
-                texture = load_image(&gRenderer, texture_paths[metal_roughness_image_index], Format::eR8G8B8A8Unorm).value_or(gRenderer.image_white);
-                temp_textures[metal_roughness_image_index] = texture;
+                std::println("Reusing texture: {}", texture_guid);
             }
-            textures[std::format("metal_{}", std::to_string(metal_roughness_image_index))] = texture;
-            material_resources.metal_roughness_texture = texture;
+            material_resources.metal_roughness_texture->reference();
+            textures.push_back(material_resources.metal_roughness_texture);
         }
         std::getline(file, line);
         int metal_roughness_sampler_index = std::stoi(line);
@@ -406,7 +405,7 @@ void LoadedGLTF::load(std::string p_path) {
         auto material = gRenderer.metal_roughness_material.write_material(gRenderer.device, MaterialPass::MainColor, material_resources, descriptor_pool);
         materials[std::to_string(material_index)] = std::make_shared<MaterialInstance>(material);
     }
-
+    
     // Animations
     std::getline(file, line);
     assert(line == "Animations");
@@ -558,7 +557,7 @@ void LoadedGLTF::load(std::string p_path) {
         
         if (skinning_data.size() > 0) {
             mesh->mesh_buffers = gRenderer.upload_mesh(indices, vertices, skinning_data, joint_matrices);
-            skeleton->joint_matrices_buffer = &mesh->mesh_buffers.joint_matrices_buffer;
+            skeleton->joint_matrices_buffer = &(mesh->mesh_buffers.joint_matrices_buffer);
             node->add_child(skeleton_node);
         } else {
             mesh->mesh_buffers = gRenderer.upload_mesh(indices, vertices);
@@ -566,18 +565,16 @@ void LoadedGLTF::load(std::string p_path) {
         
         mesh->vertex_count = vertices.size();
         mesh.set_load_status(LoadStatus::LOADED);
-        mesh.reference();
-        Resource<Mesh>::resources[mesh_guid].set_load_status(LoadStatus::LOADED);
     } else {
         std::println("Reusing mesh: {}", mesh_guid.c_str());
-        mesh.reference();
     }
-    
+    mesh.reference();
+
     file.close();
 
     // Nodes
     auto mesh_instance = node->add_component<MeshInstance>();
-    mesh_instance->mesh = mesh;
+    mesh_instance->mesh = meshes["x"];
     node->refresh_transform(Transform());
 }
 
@@ -1095,6 +1092,7 @@ std::shared_ptr<Node> load_scene(std::string p_path) {
         if (scene_file["skinned"]) {
             auto skinning = std::make_shared<SkinnedMesh>();
             skinning->mesh = model_node->get_component<MeshInstance>()->mesh;
+            skinning->mesh->reference();
             model_node->add_component<SkinnedMesh>(skinning);
         }
     }

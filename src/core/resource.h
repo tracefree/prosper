@@ -19,8 +19,7 @@ private:
     LoadStatus load_status { LoadStatus::UNLOADED };
 
 public:
-    static std::unordered_map<std::string, Resource<T>> resources;
-    std::string guid;
+    std::string guid {"<invalid resource>"};
 
     void reference() {
         reference_count += 1;
@@ -28,15 +27,13 @@ public:
     }
 
     void unreference() {
-        if (reference_count == 0) {
-            std::println("UNREFERENCING DELETED: {}", guid);
-        }
         reference_count -= 1;
         std::println("REFERENCE-: {}, {}", reference_count, guid);
         if (reference_count == 0) {
             unload();
             delete pointer;
             pointer = nullptr;
+            load_status = LoadStatus::UNLOADED;
         }
     }
 
@@ -87,16 +84,7 @@ public:
         load_status = p_load_status;
     }
 
-    static Resource<T>& get(std::string p_guid) {
-        auto resource = Resource<T>::resources[p_guid];
-        Resource<T>::resources[p_guid].guid = p_guid;
-        return Resource<T>::resources[p_guid];
-    }
-
     template<typename... Ts>
     static Resource<T>& load(std::string p_guid, Ts... arguments);
     void unload() {};
 };
-
-template <typename T>
-std::unordered_map<std::string, Resource<T>> Resource<T>::resources;

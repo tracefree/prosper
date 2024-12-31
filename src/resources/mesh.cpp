@@ -3,13 +3,6 @@
 
 extern Renderer gRenderer;
 
-template<>
-template<>
-Resource<Mesh>& Resource<Mesh>::load<>(std::string p_guid) {
-    std::println("Custom implementation");
-    resources[p_guid] = Resource<Mesh>();
-    return resources[p_guid];
-}
 
 template<>
 void Resource<Mesh>::unload() {

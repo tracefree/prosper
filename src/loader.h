@@ -7,6 +7,7 @@
 #include <rendering/descriptors.h>
 #include <resources/animation.h>
 #include <resources/mesh.h>
+#include <resources/texture.h>
 
 #include <memory>
 #include <unordered_map>
@@ -17,8 +18,8 @@
 class Renderer;
 
 struct LoadedGLTF : public Component {
-    std::unordered_map<std::string, std::string> meshes;
-    std::unordered_map<std::string, AllocatedImage> textures;
+    std::unordered_map<std::string, std::shared_ptr<Resource<Mesh>>> meshes;
+    std::vector<std::shared_ptr<Resource<Texture>>> textures;
     std::unordered_map<std::string, std::shared_ptr<MaterialInstance>> materials;
 
     std::vector<Sampler> samplers;

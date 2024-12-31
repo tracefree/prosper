@@ -55,12 +55,6 @@ struct ComputePushConstants {
     Vec4 _data4;
 };
 
-struct ComputeEffect {
-    const char* name;
-    PipelineLayout layout;
-    ComputePushConstants data;
-};
-
 struct MaterialMetallicRoughness {
     ShaderObject opaque_shader;
     ShaderObject transparent_shader;
@@ -74,13 +68,13 @@ struct MaterialMetallicRoughness {
     };
 
     struct MaterialResources {
-        AllocatedImage albedo_texture;
+        std::shared_ptr<Resource<Texture>> albedo_texture;
         Sampler albedo_sampler;
 
-        AllocatedImage normal_texture;
+        std::shared_ptr<Resource<Texture>> normal_texture;
         Sampler normal_sampler;
 
-        AllocatedImage metal_roughness_texture;
+        std::shared_ptr<Resource<Texture>> metal_roughness_texture;
         Sampler metal_roughness_sampler;
 
         Buffer data_buffer;

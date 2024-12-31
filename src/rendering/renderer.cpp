@@ -5,6 +5,7 @@
 #include <components/camera.h>
 #include <core/node.h>
 #include <core/scene_graph.h>
+#include <core/resource_manager.h>
 
 #include <shaders/skinning.h>
 #include <shaders/mesh.h>
@@ -617,14 +618,22 @@ bool Renderer::create_descriptors() {
 void Renderer::init_default_data() {
     // Default textures
     uint32_t white = glm::packUnorm4x8(glm::vec4(1.0f));
+    auto white_resource = *ResourceManager::get<Texture>("::image_white");
     image_white = create_image((void*) &white, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
+    white_resource->image = image_white;
+    white_resource.set_load_status(LoadStatus::LOADED);
+    white_resource.reference();
 
     uint32_t black = glm::packUnorm4x8(glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
     image_black = create_image((void*) &black, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
 
     uint32_t blue = glm::packUnorm4x8(glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    auto default_normal_resource = *ResourceManager::get<Texture>("::image_default_normal");
     image_default_normal = create_image((void*) &blue, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
-    
+    default_normal_resource->image = image_default_normal;
+    default_normal_resource.set_load_status(LoadStatus::LOADED);
+    default_normal_resource.reference();
+
     uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
     std::array<uint32_t, 16 * 16 > pixels;
 	for (int x = 0; x < 16; x++) {
@@ -646,11 +655,11 @@ void Renderer::init_default_data() {
     std::tie(result, sampler_default_linear) = device.createSampler(sample_info);
 
     MaterialMetallicRoughness::MaterialResources material_resources {
-        .albedo_texture            = image_white,
+        .albedo_texture            = ResourceManager::get<Texture>("::image_white"),
         .albedo_sampler            = sampler_default_linear,
-        .normal_texture            = image_default_normal,
+        .normal_texture            = ResourceManager::get<Texture>("::image_default_normal"),
         .normal_sampler            = sampler_default_nearest,
-        .metal_roughness_texture   = image_black,
+        .metal_roughness_texture   = ResourceManager::get<Texture>("::image_white"),
         .metal_roughness_sampler   = sampler_default_linear,
     };
 
@@ -1688,9 +1697,9 @@ MaterialInstance MaterialMetallicRoughness::write_material(Device p_device, Mate
 
     writer.clear();
     writer.write_buffer(0, p_resources.data_buffer, sizeof(MaterialConstants), p_resources.data_buffer_offset, DescriptorType::eUniformBuffer);
-    writer.write_image(1, p_resources.albedo_texture.image_view,          p_resources.albedo_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
-    writer.write_image(2, p_resources.normal_texture.image_view,          p_resources.normal_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
-    writer.write_image(3, p_resources.metal_roughness_texture.image_view, p_resources.metal_roughness_sampler, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+    writer.write_image(1, (*p_resources.albedo_texture)->image.image_view,          p_resources.albedo_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+    writer.write_image(2, (*p_resources.normal_texture)->image.image_view,          p_resources.normal_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+    writer.write_image(3, (*p_resources.metal_roughness_texture)->image.image_view, p_resources.metal_roughness_sampler, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
     writer.update_set(p_device, material_data.material_set);
 
     return material_data;

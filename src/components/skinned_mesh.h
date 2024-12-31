@@ -7,8 +7,9 @@
 #include <resources/mesh.h>
 
 struct SkinnedMesh : public Component {
-    Resource<Mesh> mesh;
+    std::shared_ptr<Resource<Mesh>> mesh;
 
     void draw(const Mat4& p_transform, DrawContext& p_context) override;
+    void cleanup() override;
     static std::string get_name();
 };

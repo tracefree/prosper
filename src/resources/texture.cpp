@@ -1,17 +1,23 @@
 #include <resources/texture.h>
 #include <rendering/renderer.h>
 #include <stb_image.h>
+#include <core/resource_manager.h>
 
 extern Renderer gRenderer;
 
-template<> template<>
-Resource<Texture>& Resource<Texture>::load<std::filesystem::path, vk::Format>(std::string p_guid, std::filesystem::path p_file_path, vk::Format p_format) {
-    resources[p_guid] = Resource<Texture>(p_guid);
 
+template<>
+void Resource<Texture>::unload() {
+    gRenderer.destroy_image(pointer->image);
+};
+
+template<>
+void ResourceManager::load<Texture, vk::Format>(const char* p_guid, vk::Format p_format) {
+    auto file_path = std::filesystem::path(p_guid);
     AllocatedImage new_image {};
-    if (p_file_path.extension() == ".ktx2") {
+    if (file_path.extension() == ".ktx2") {
         ktxTexture2* k_texture;
-        auto result = ktxTexture2_CreateFromNamedFile(p_file_path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &k_texture);
+        auto result = ktxTexture2_CreateFromNamedFile(file_path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &k_texture);
         if (result != KTX_SUCCESS) {
             print("Could not create KTX texture!");
         }
@@ -64,14 +70,11 @@ Resource<Texture>& Resource<Texture>::load<std::filesystem::path, vk::Format>(st
         ktxTexture2_Destroy(k_texture);
     } else {
         int w, h, nrChannels;
-        unsigned char* data = stbi_load(p_file_path.c_str(), &w, &h, &nrChannels, 4);
+        unsigned char* data = stbi_load(file_path.c_str(), &w, &h, &nrChannels, 4);
         new_image = gRenderer.create_image(data, Extent3D {uint32_t(w), uint32_t(h), 1}, p_format, ImageUsageFlagBits::eSampled, true);
     }
     
-    return resources[p_guid];
+    auto& resource = (*ResourceManager::get<Texture>(p_guid));
+    resource->image = new_image;
+    resource.set_load_status(LoadStatus::LOADED);
 }
-
-template<>
-void Resource<Texture>::unload() {
-    
-};
