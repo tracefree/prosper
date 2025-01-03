@@ -3,10 +3,12 @@
 #include <core/component.h>
 #include <core/signal.h>
 
+
 struct Collectible : Component {
-    Signal<std::shared_ptr<Node>> collected {};
+    Signal<Node*> collected {};
     bool enabled { true };
 
     void update(double delta) override;
-    static std::string get_name();
+
+    COMPONENT_FACTORY_H(Collectible)
 };

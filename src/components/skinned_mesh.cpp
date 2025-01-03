@@ -1,7 +1,7 @@
 #include <components/skinned_mesh.h>
 
 
-void SkinnedMesh::draw(const Mat4& p_transform, DrawContext& p_context) {
+void SkinnedMesh::draw(const Mat4& p_transform, DrawContext& p_context) const {
     p_context.skinned_meshes.emplace_back(SkinningPushConstants {
         .number_vertices = (*mesh)->vertex_count,
         .input_vertex_buffer_address   = (*mesh)->mesh_buffers.vertex_buffer_address,
@@ -13,8 +13,4 @@ void SkinnedMesh::draw(const Mat4& p_transform, DrawContext& p_context) {
 
 void SkinnedMesh::cleanup() {
     mesh->unreference();
-}
-
-std::string SkinnedMesh::get_name() {
-    return "SkinnedMesh";
 }

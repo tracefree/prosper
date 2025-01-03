@@ -1,7 +1,7 @@
 #include <resources/animation.h>
 
 
-std::vector<std::string> AnimationLibrary::get_animation_list() {
+std::vector<std::string> AnimationLibrary::get_animation_list() const {
     std::vector<std::string> animation_list;
     animation_list.reserve(animations.size());
     for (auto& [name, _] : animations) {
@@ -10,7 +10,7 @@ std::vector<std::string> AnimationLibrary::get_animation_list() {
     return animation_list;
 }
 
-std::vector<const char*> AnimationLibrary::get_animation_list_cstr() {
+std::vector<const char*> AnimationLibrary::get_animation_list_cstr() const {
     std::vector<const char*> animation_list;
     animation_list.reserve(animations.size());
     for (auto& [name, _] : animations) {

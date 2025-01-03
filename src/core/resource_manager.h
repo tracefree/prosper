@@ -24,7 +24,7 @@ public:
     }
 
     template<typename T, typename... Ts>
-    static void load(const char* p_guid, Ts... p_arguments);
+    static std::shared_ptr<Resource<T>> load(const char* p_guid, Ts... p_arguments);
 
     template<typename T>
     static void save(const char* p_guid);

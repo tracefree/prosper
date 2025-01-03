@@ -1,10 +1,11 @@
 #include <components/collectible.h>
 #include <core/node.h>
+#include <yaml.h>
 
 extern std::shared_ptr<Node> player;
 
 void Collectible::update(double delta) {
-    if (!enabled) {
+    if (!enabled || player == nullptr) {
         return;
     }
 
@@ -15,11 +16,10 @@ void Collectible::update(double delta) {
     );
     
     if (distance < 1.0f) {
-        collected.emit(std::make_shared<Node>(*node));
+        collected.emit(node);
         enabled = false;
+        node->visible = false;
     }
 }
 
-std::string Collectible::get_name() {
-    return "Collectible";
-}
+COMPONENT_FACTORY_IMPL(Collectible, collectible) {}

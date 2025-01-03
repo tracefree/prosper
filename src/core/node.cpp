@@ -7,7 +7,7 @@ void Node::refresh_transform() {
 void Node::refresh_transform(Transform p_parent_transform) {
     // TODO: Why can't p_parent_transform be const?
     global_transform = p_parent_transform * transform;
-    
+
     for (auto child : children) {
         child->refresh_transform(global_transform);
     }
@@ -33,7 +33,7 @@ void Node::process_input(SDL_Event& event) {
     }
 }
 
-void Node::draw(const Mat4& p_transform, DrawContext& p_context) {
+void Node::draw(const Mat4& p_transform, DrawContext& p_context) const {    
     if (!visible) return;
     for (auto& component : components) {
         component->draw(p_transform, p_context);
@@ -61,7 +61,7 @@ Node::Node(std::string p_name) {
     name = p_name;
 }
 
-Vec3 Node::get_position() {
+Vec3 Node::get_position() const {
     return transform.position;
 }
 
@@ -85,7 +85,7 @@ void Node::move(float p_x, float p_y, float p_z) {
     refresh_transform();
 }
 
-float Node::get_scale() {
+float Node::get_scale() const {
     return transform.scale;
 }
 
@@ -99,7 +99,7 @@ void Node::scale_by(float p_scale) {
     refresh_transform();
 }
 
-glm::quat Node::get_rotation() {
+glm::quat Node::get_rotation() const {
     return transform.rotation;
 }
 
@@ -108,7 +108,12 @@ void Node::set_rotation(glm::quat p_rotation) {
     refresh_transform();
 }
 
-Transform Node::get_global_transform() {
+void Node::rotate(Vec3 p_axis, float p_angle) {
+    transform.rotation *= glm::quat(p_axis * p_angle);
+    refresh_transform();
+}
+
+Transform Node::get_global_transform() const {
     return global_transform;
 }
 

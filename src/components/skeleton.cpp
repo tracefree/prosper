@@ -1,9 +1,6 @@
 #include <components/skeleton.h>
 #include <core/node.h>
-
-std::string Skeleton::get_name() {
-    return "Skeleton";
-}
+#include <rendering/types.h>
 
 void Skeleton::set_bone_rotation(uint32_t p_bone_index, glm::quat p_rotation) {
     if (p_bone_index != root_motion_index) {
@@ -17,7 +14,7 @@ void Skeleton::set_bone_position(uint32_t p_bone_index, Vec3 p_position) {
     }
 }
 
-void Skeleton::draw(const Mat4& p_transform, DrawContext& p_context) {
+void Skeleton::draw(const Mat4& p_transform, DrawContext& p_context) const {
     if (joint_matrices_buffer == nullptr) {
         return;
     }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <rendering/types.h>
+struct AllocatedImage;
 
 struct Texture {
-    AllocatedImage image;
+    std::unique_ptr<AllocatedImage> image;
 };

@@ -25,7 +25,7 @@ Rendering:
 - [x] Directional and point lights
 - [ ] Shadows
 - [ ] Global illumination
-- [ ] Skybox
+- [x] Skybox
 - [ ] etc.
 
 General game engine features:
@@ -47,10 +47,9 @@ cmake . -B build -G Ninja
 cmake --build build
 ```
 
-The executable then gets created in `build/bin` if everything went right. 
-Regarding the shaders, they are compiled to bytecode and included with `shaders/bin/` and their source code is in `shaders/src/`. If you want to modify it you'll have to compile it with [`slangc`](https://github.com/shader-slang/slang). The `shaders` directory contains a bash script with the compile commands I used, you will need to adjust path to the slangc binary to point to where it is installed on your system.
+An example application using the engine library is provided in the `sample` directory. Build it by executing the same commands as above again within that directory, the executable `prosper_sample` will then be built in it. The sample project is currently set to automatically download the Sponza scene from the [glTF-Sample-Assets](https://github.com/KhronosGroup/glTF-Sample-Assets) repository, please refer to that page for license information for the assets. The camera can be controlled by looking around with the mouse and moving with the WASD keys, as well as E and Q for going up and down. The sample scene currently does not showcase the full capabilities of the engine - I will update it with an animated character and skybox once I decide on a better way to distribute assets.
 
-Warning: The project is currently hardcoded to load scenes defined in .yaml files which depend on specific assets that aren't included in the repository. Therefore the program will crash on start and there is little point in building it right now, but I plan to de-hardcode this aspect and provide a separate example project soon-ish.
+Regarding the shaders, they are compiled to bytecode and included with `shaders/bin/` and their source code is in `shaders/src/`. If you want to modify it you'll have to compile it with [`slangc`](https://github.com/shader-slang/slang). The `shaders` directory contains a bash script with the compile commands I used, you will need to adjust path to the slangc binary to point to where it is installed on your system.
 
 ### Windows
 idk, you're on your own ¯\_(ツ)_/¯

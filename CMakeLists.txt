@@ -2,10 +2,12 @@ cmake_minimum_required(VERSION 3.31)
 project(prosper VERSION 0.2 LANGUAGES CXX)
 
 # --- Dependencies ---
+#set(CMAKE_CXX_FLAGS "-O2 -flto -fno-fat-lto-objects")
 find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
 find_package(Vulkan REQUIRED)
 include(FetchContent)
 set(BUILD_SHARED_LIBS OFF)
+set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS_INIT} -std=c++20 -fPIC")
 
 # - VulkanMemoryAllocator
 FetchContent_Declare(
@@ -83,21 +85,26 @@ FetchContent_MakeAvailable(JoltPhysics)
 
 
 # --- Main project ---
+#set(CMAKE_BUILD_TYPE Debug)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY bin)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-set(CMAKE_CXX_FLAGS "-g")
+set(CMAKE_CXX_FLAGS                " ${CMAKE_CXX_FLAGS_INIT} -std=c++23 -fPIC")
+set(CMAKE_CXX_FLAGS_DEBUG          "-g -DDEBUG")
+set(CMAKE_CXX_FLAGS_MINSIZEREL     "-Os -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE        "-O4 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -DDEBUG")
 
-add_executable(prosper
-    src/main.cpp
+add_library(prosper SHARED
+    src/prosper.cpp
     src/input.cpp
     src/math.cpp
     src/physics.cpp
     src/loader.cpp
 
     src/core/node.cpp
-   # src/core/resource.cpp
+    src/core/component.cpp
     src/core/scene_graph.cpp
 
     src/rendering/descriptors.cpp
@@ -108,6 +115,7 @@ add_executable(prosper
     
     src/resources/animation.cpp
     src/resources/mesh.cpp
+    src/resources/scene.cpp
     src/resources/texture.cpp
 
     src/components/animation_player.cpp
@@ -116,6 +124,7 @@ add_executable(prosper
     src/components/character_controller.cpp
     src/components/collectible.cpp
     src/components/mesh_instance.cpp
+    src/components/model_data.cpp
     src/components/point_light.cpp
     src/components/skeleton.cpp
     src/components/skinned_mesh.cpp
@@ -147,7 +156,6 @@ target_compile_definitions(prosper PUBLIC
   KHRONOS_STATIC # Needed to statically link KTX-Software
 )
 
-target_precompile_headers(prosper PUBLIC <optional> <vector> <string> <unordered_map> "src/rendering/vulkan_pch.h")
+target_precompile_headers(prosper PUBLIC <optional> <vector> <string> <unordered_map> <print> <memory> "src/rendering/vulkan_pch.h")
 target_link_libraries(imgui PUBLIC SDL3::SDL3 Vulkan::Vulkan)
-target_link_libraries(prosper PUBLIC yaml-cpp::yaml-cpp fastgltf::fastgltf imgui ${CMAKE_SOURCE_DIR}/build/_deps/ktx-software-build/libktx.a Jolt)
-target_link_libraries(prosper PRIVATE SDL3::SDL3 Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator stb)
+target_link_libraries(prosper PUBLIC yaml-cpp::yaml-cpp fastgltf::fastgltf imgui ${CMAKE_SOURCE_DIR}/build/_deps/ktx-software-build/libktx.a Jolt SDL3::SDL3 Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator stb)

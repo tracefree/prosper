@@ -1,11 +1,9 @@
 #pragma once
 #include <math.h>
-#include <unordered_map>
-#include <memory>
-#include <SDL3/SDL_events.h>
-#include <string>
 #include <core/component.h>
 #include <type_traits>
+
+union SDL_Event;
 
 struct Node {
 protected:
@@ -24,21 +22,22 @@ public:
     bool active  { true };
     bool visible { true };
 
-    Vec3 get_position();
+    Vec3 get_position() const;
     void set_position(Vec3 p_position);
     void set_position(float p_x, float p_y, float p_z);
     
     void move(Vec3 p_vector);
     void move(float p_x, float p_y, float p_z);
 
-    float get_scale();
+    float get_scale() const;
     void set_scale(float p_scale);
     void scale_by(float p_scale);
 
-    glm::quat get_rotation();
+    glm::quat get_rotation() const;
     void set_rotation(glm::quat p_rotation);
+    void rotate(Vec3 p_axis, float p_angle);
 
-    Transform get_global_transform();
+    Transform get_global_transform() const;
 
     void add_child(std::shared_ptr<Node> p_child);
 
@@ -50,10 +49,10 @@ public:
         component_table[&typeid(T)] = p_component;
     }
     
-    template<typename T>
+    template<typename T, typename... Ts>
     std::enable_if_t<std::is_base_of_v<Component, T>, std::shared_ptr<T>>
-    add_component() {
-        auto component = std::make_shared<T>();
+    add_component(Ts... arguments) {
+        auto component = std::make_shared<T>(arguments...);
         component->node = this;
         components.push_back(component);
 
@@ -72,7 +71,7 @@ public:
 
     void update(double delta);
     void process_input(SDL_Event& event);
-    void draw(const Mat4& p_transform, DrawContext& p_context);
+    void draw(const Mat4& p_transform, DrawContext& p_context) const;
     void cleanup();
 
     static std::shared_ptr<Node> create();

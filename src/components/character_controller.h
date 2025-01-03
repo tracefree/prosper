@@ -14,7 +14,8 @@ struct CharacterController : public Component {
 
     void update(double delta) override;
     void process_input(SDL_Event& event) override;
-    void initialize();
+    void initialize() override;
     void cleanup() override;
-    static std::string get_name();
+
+    COMPONENT_FACTORY_H(CharacterController)
 };

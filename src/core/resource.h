@@ -23,12 +23,12 @@ public:
 
     void reference() {
         reference_count += 1;
-        std::println("REFERENCE+: {}, {}", reference_count, guid);
+        // std::println("REFERENCE+: {}, {}", reference_count, guid);
     }
 
     void unreference() {
         reference_count -= 1;
-        std::println("REFERENCE-: {}, {}", reference_count, guid);
+        // std::println("REFERENCE-: {}, {}", reference_count, guid);
         if (reference_count == 0) {
             unload();
             delete pointer;
@@ -76,7 +76,7 @@ public:
         reference_count = p_resource.reference_count;
     }
 
-    bool loaded() {
+    bool loaded() const {
         return (load_status == LoadStatus::LOADED);
     }
 

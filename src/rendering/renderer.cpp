@@ -5,7 +5,9 @@
 #include <components/camera.h>
 #include <core/node.h>
 #include <core/scene_graph.h>
+#include <core/resource.h>
 #include <core/resource_manager.h>
+#include <resources/texture.h>
 
 #include <shaders/skinning.h>
 #include <shaders/mesh.h>
@@ -17,7 +19,6 @@
 #include <imgui.h>
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_vulkan.h>
-
 
 extern PerformanceStats gStats;
 extern bool gValidationLayersEnabled;
@@ -231,11 +232,24 @@ bool Renderer::create_draw_image() {
     view_info.format = gbuffer_normal.image_format;
     std::tie(result, gbuffer_normal.image_view) = device.createImageView(view_info);
     
+    // Depth MS
+    depth_image_ms.image_format = Format::eD32Sfloat;
+    depth_image_ms.image_extent = gbuffer_albedo.image_extent;
+    image_info.format = depth_image_ms.image_format;
+    image_info.usage  = ImageUsageFlagBits::eDepthStencilAttachment | ImageUsageFlagBits::eSampled;
+    creation_result = vmaCreateImage(allocator, (VkImageCreateInfo*)&image_info, &image_alloc_info, (VkImage_T**) &depth_image_ms.image, &depth_image_ms.allocation, nullptr);
+    
+    ImageViewCreateInfo depth_image_ms_view_info = view_info;
+    depth_image_ms_view_info.image = depth_image_ms.image;
+    depth_image_ms_view_info.format = depth_image_ms.image_format;
+    depth_image_ms_view_info.subresourceRange.aspectMask = ImageAspectFlagBits::eDepth;
+    std::tie(result, depth_image_ms.image_view) = device.createImageView(depth_image_ms_view_info);
+
     // Depth
     depth_image.image_format = Format::eD32Sfloat;
     depth_image.image_extent = gbuffer_albedo.image_extent;
-    image_info.format = depth_image.image_format;
-    image_info.usage  = ImageUsageFlagBits::eDepthStencilAttachment | ImageUsageFlagBits::eSampled;
+    image_info.samples = vk::SampleCountFlagBits::e1;
+    image_info.usage  = ImageUsageFlagBits::eDepthStencilAttachment | ImageUsageFlagBits::eSampled | ImageUsageFlagBits::eStorage;
     creation_result = vmaCreateImage(allocator, (VkImageCreateInfo*)&image_info, &image_alloc_info, (VkImage_T**) &depth_image.image, &depth_image.allocation, nullptr);
     
     ImageViewCreateInfo depth_image_view_info = view_info;
@@ -273,6 +287,9 @@ bool Renderer::create_draw_image() {
 
         vmaDestroyImage(allocator, depth_image.image, depth_image.allocation);
         device.destroyImageView(depth_image.image_view);
+
+        vmaDestroyImage(allocator, depth_image_ms.image, depth_image_ms.allocation);
+        device.destroyImageView(depth_image_ms.image_view);
 
         vmaDestroyImage(allocator, storage_image.image, storage_image.allocation);
         device.destroyImageView(storage_image.image_view);
@@ -346,7 +363,8 @@ bool Renderer::create_skybox_shader() {
     };
 
     PipelineLayoutCreateInfo layout_info {
-        .setLayoutCount = 0,
+        .setLayoutCount = 1,
+        .pSetLayouts = &skybox_descriptor_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constants,
     };
@@ -366,6 +384,8 @@ bool Renderer::create_skybox_shader() {
         .codeSize = skybox_spv_sizeInBytes,
         .pCode = skybox_spv,
         .pName = "vertex",
+        .setLayoutCount = 1,
+        .pSetLayouts = &skybox_descriptor_layout,
         .pushConstantRangeCount = 1,
         .pPushConstantRanges = &push_constants,
     };
@@ -385,10 +405,16 @@ bool Renderer::create_skybox_shader() {
         .set_cull_mode(CullModeFlagBits::eNone, FrontFace::eCounterClockwise)
         .enable_depth_writing(False);
     
+    if (std::filesystem::exists("assets/textures/skybox.ktx2")) {
+        skybox_texture = *ResourceManager::load<Texture>("assets/textures/skybox.ktx2", vk::Format::eR8G8B8A8Srgb);
+        skybox_texture.reference();
+    }
+
     deletion_queue.push_function([&]() {
         device.destroyShaderEXT(skybox_shader.vertex, nullptr);
         device.destroyShaderEXT(skybox_shader.fragment, nullptr);
         device.destroyPipelineLayout(skybox_layout);
+        skybox_texture.unreference();
     });
 
     return true;
@@ -575,6 +601,7 @@ bool Renderer::create_descriptors() {
         builder.add_binding(1, DescriptorType::eSampledImage);  // Input gbuffer_albedo
         builder.add_binding(2, DescriptorType::eSampledImage);  // Input gbuffer_normal
         builder.add_binding(3, DescriptorType::eStorageImage);  // Output storage image
+        builder.add_binding(4, DescriptorType::eStorageImage);  // Output depth image
         storage_image_descriptor_layout = builder.build(device, ShaderStageFlagBits::eCompute);
     }
     {
@@ -587,6 +614,11 @@ bool Renderer::create_descriptors() {
         builder.add_binding(0, DescriptorType::eCombinedImageSampler);
         single_image_descriptor_layout = builder.build(device, ShaderStageFlagBits::eFragment);
     }
+    {
+        DescriptorLayoutBuilder builder;
+        builder.add_binding(0, DescriptorType::eCombinedImageSampler);
+        skybox_descriptor_layout = builder.build(device, ShaderStageFlagBits::eFragment);
+    }
     
     deletion_queue.push_function([&]() {
         global_descriptor_allocator.destroy_pools(device);
@@ -594,6 +626,7 @@ bool Renderer::create_descriptors() {
         device.destroyDescriptorSetLayout(storage_image_descriptor_layout);
         device.destroyDescriptorSetLayout(scene_data_descriptor_layout);
         device.destroyDescriptorSetLayout(single_image_descriptor_layout);
+        device.destroyDescriptorSetLayout(skybox_descriptor_layout);
     });
 
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -620,7 +653,7 @@ void Renderer::init_default_data() {
     uint32_t white = glm::packUnorm4x8(glm::vec4(1.0f));
     auto white_resource = *ResourceManager::get<Texture>("::image_white");
     image_white = create_image((void*) &white, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
-    white_resource->image = image_white;
+    white_resource->image = std::make_unique<AllocatedImage>(image_white);
     white_resource.set_load_status(LoadStatus::LOADED);
     white_resource.reference();
 
@@ -630,7 +663,7 @@ void Renderer::init_default_data() {
     uint32_t blue = glm::packUnorm4x8(glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
     auto default_normal_resource = *ResourceManager::get<Texture>("::image_default_normal");
     image_default_normal = create_image((void*) &blue, Extent3D {1, 1, 1}, Format::eR8G8B8A8Unorm, ImageUsageFlagBits::eSampled);
-    default_normal_resource->image = image_default_normal;
+    default_normal_resource->image = std::make_unique<AllocatedImage>(image_default_normal);
     default_normal_resource.set_load_status(LoadStatus::LOADED);
     default_normal_resource.reference();
 
@@ -1052,9 +1085,14 @@ void Renderer::immediate_submit(std::function<void(CommandBuffer p_cmd)>&& funct
     device.waitForFences(1, &immediate_fence, True, UINT64_MAX);
 }
 
-void Renderer::transition_image(CommandBuffer p_cmd, Image p_image, ImageLayout p_current_layout, ImageLayout p_target_layout) {
-    ImageAspectFlags aspect_mask = (p_target_layout == ImageLayout::eDepthAttachmentOptimal || p_current_layout == ImageLayout::eDepthAttachmentOptimal)
+void Renderer::transition_image(CommandBuffer p_cmd, Image p_image, ImageLayout p_current_layout, ImageLayout p_target_layout, ImageAspectFlags p_aspect_flags) {
+    ImageAspectFlags aspect_mask;
+    if (p_aspect_flags == vk::ImageAspectFlagBits::eNone) {
+        aspect_mask = (p_target_layout == ImageLayout::eDepthAttachmentOptimal || p_current_layout == ImageLayout::eDepthAttachmentOptimal)
         ? ImageAspectFlagBits::eDepth : ImageAspectFlagBits::eColor;
+    } else {
+        aspect_mask = p_aspect_flags;
+    }
     
     ImageMemoryBarrier2 image_barrier {
         .srcStageMask   = PipelineStageFlagBits2::eAllCommands,
@@ -1229,6 +1267,14 @@ bool Renderer::initialize(uint32_t p_extension_count, const char* const* p_exten
         print("Could not create descriptors!");
         return false;
     }
+
+    auto ktx_result = ktxVulkanDeviceInfo_Construct(&ktx_device_info, physical_device, device, graphics_queue, immediate_command_pool, nullptr);
+    if (ktx_result != KTX_SUCCESS) {
+    }
+    deletion_queue.push_function([&]() {
+        ktxVulkanDeviceInfo_Destruct(&ktx_device_info);
+    });
+
     if (!create_shader_objects()) {
         print("Could not create pipelines!");
         return false;
@@ -1239,12 +1285,6 @@ bool Renderer::initialize(uint32_t p_extension_count, const char* const* p_exten
     }
     init_default_data();
 
-    auto ktx_result = ktxVulkanDeviceInfo_Construct(&ktx_device_info, physical_device, device, graphics_queue, immediate_command_pool, nullptr);
-    if (ktx_result != KTX_SUCCESS) {
-    }
-    deletion_queue.push_function([&]() {
-        ktxVulkanDeviceInfo_Destruct(&ktx_device_info);
-    });
     return true;
 }
 
@@ -1264,9 +1304,9 @@ void Renderer::cleanup() {
     SDL_DestroyWindow(window);
 }
 
-void Renderer::draw_skybox(CommandBuffer p_cmd) {
+void Renderer::draw_skybox(CommandBuffer p_cmd, uint p_swapchain_image_index) {
     RenderingAttachmentInfo color_attachment {
-        .imageView   = gbuffer_albedo.image_view,
+        .imageView   = swapchain_image_views[p_swapchain_image_index],
         .imageLayout = ImageLayout::eColorAttachmentOptimal,
         .loadOp      = AttachmentLoadOp::eLoad,
         .storeOp     = AttachmentStoreOp::eStore,
@@ -1278,12 +1318,21 @@ void Renderer::draw_skybox(CommandBuffer p_cmd) {
         .storeOp     = AttachmentStoreOp::eNone,
     };
     RenderingInfo render_info {
-        .renderArea = Rect2D { {0, 0}, {gbuffer_albedo.image_extent.width, gbuffer_albedo.image_extent.height} },
+        .renderArea = Rect2D { {0, 0}, {1920, 1080} }, // TODO: Get window size
         .layerCount = 1,
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachment,
         .pDepthAttachment = &depth_attachment,
     };
+
+    DescriptorSet skybox_descriptor = get_current_frame().descriptors.allocate(device, skybox_descriptor_layout);
+    {
+        DescriptorWriter writer {};
+        auto image_view = skybox_texture.loaded() ? skybox_texture->image->image_view : image_black.image_view;
+        writer.write_image(0, image_view, sampler_default_linear, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+        writer.update_set(device, skybox_descriptor);
+    }
+    p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, skybox_layout, 0, 1, &skybox_descriptor, 0, nullptr);
 
     p_cmd.beginRendering(render_info);
 
@@ -1320,6 +1369,8 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
         opaque_draws.push_back(i);
     }
 
+#define SORT 0
+#if SORT
     std::sort(opaque_draws.begin(), opaque_draws.end(),
         [&](const auto& index_a, const auto& index_b) {
             const RenderObject& a = draw_context.opaque_surfaces[index_a];
@@ -1331,6 +1382,7 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
             }
         }
     );
+#endif
 
     for (auto& skinning_push_constants : draw_context.skinned_meshes) {
         skinning_shader.bind(p_cmd);
@@ -1352,7 +1404,7 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
         .storeOp     = AttachmentStoreOp::eStore,
     };
     RenderingAttachmentInfo depth_attachment {
-        .imageView   = depth_image.image_view,
+        .imageView   = depth_image_ms.image_view,
         .imageLayout = ImageLayout::eDepthAttachmentOptimal,
         .loadOp      = AttachmentLoadOp::eClear,
         .storeOp     = AttachmentStoreOp::eStore,
@@ -1389,7 +1441,6 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
     Buffer previous_index_buffer = VK_NULL_HANDLE;
 
     auto draw_object = [&](const RenderObject& render_object) {
-        
         if (render_object.material != previous_material) {
             previous_material = render_object.material;
             if (render_object.material->shader != previous_shader) {
@@ -1398,7 +1449,6 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
                 p_cmd.setColorBlendEnableEXT(0, {False, False});
                 p_cmd.setColorWriteMaskEXT(0, { ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA, ColorComponentFlagBits::eR | ColorComponentFlagBits::eG | ColorComponentFlagBits::eB | ColorComponentFlagBits::eA });
             }
-
             p_cmd.bindDescriptorSets(PipelineBindPoint::eGraphics, render_object.material->shader->layout, 0, 1, &render_object.material->material_set, 0, nullptr);
         }
 
@@ -1420,12 +1470,12 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
         gStats.triangle_count += render_object.index_count / 3;
     };
 
-    for (const auto& render_object_index : opaque_draws) {
-        draw_object(draw_context.opaque_surfaces[render_object_index]);
+    for (const auto& surface : draw_context.opaque_surfaces) {
+        draw_object(surface);
     }
 
-    for (const RenderObject& render_object : draw_context.transparent_surfaces) {
-        draw_object(render_object);
+    for (const auto& surface : draw_context.transparent_surfaces) {
+        draw_object(surface);
     }
 
     p_cmd.endRendering();
@@ -1453,10 +1503,11 @@ void Renderer::draw_lighting(CommandBuffer p_cmd) {
     DescriptorSet lighting_descriptor = get_current_frame().descriptors.allocate(device, storage_image_descriptor_layout);
     {
         DescriptorWriter writer {};
-        writer.write_image(0, depth_image.image_view,       VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
+        writer.write_image(0, depth_image_ms.image_view,    VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
         writer.write_image(1, gbuffer_albedo.image_view,    VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
         writer.write_image(2, gbuffer_normal.image_view,    VK_NULL_HANDLE, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eSampledImage);
         writer.write_image(3, storage_image.image_view,     VK_NULL_HANDLE, ImageLayout::eGeneral,               DescriptorType::eStorageImage);
+        writer.write_image(4, depth_image.image_view,       VK_NULL_HANDLE, ImageLayout::eGeneral,               DescriptorType::eStorageImage);
         writer.update_set(device, lighting_descriptor);
     }
     DescriptorSet sets[] = {global_descriptor, lighting_descriptor};
@@ -1518,17 +1569,17 @@ void Renderer::draw() {
     };
     cmd.begin(begin_info);
 
-    transition_image(cmd, depth_image.image,    ImageLayout::eUndefined, ImageLayout::eDepthAttachmentOptimal);
+    transition_image(cmd, depth_image_ms.image, ImageLayout::eUndefined, ImageLayout::eDepthAttachmentOptimal);
     transition_image(cmd, gbuffer_albedo.image, ImageLayout::eUndefined, ImageLayout::eColorAttachmentOptimal);
     transition_image(cmd, gbuffer_normal.image, ImageLayout::eUndefined, ImageLayout::eColorAttachmentOptimal);
     transition_image(cmd, storage_image.image,  ImageLayout::eUndefined, ImageLayout::eGeneral);
+    transition_image(cmd, depth_image.image,    ImageLayout::eUndefined, ImageLayout::eGeneral, vk::ImageAspectFlagBits::eDepth);
     
     cmd.setRasterizationSamplesEXT(gSamples);
     cmd.setSampleMaskEXT(gSamples, { 0xffffffff });
     draw_geometry(cmd);
-    draw_skybox(cmd);
 
-    transition_image(cmd, depth_image.image,    ImageLayout::eDepthAttachmentOptimal, ImageLayout::eShaderReadOnlyOptimal);
+    transition_image(cmd, depth_image_ms.image,    ImageLayout::eDepthAttachmentOptimal, ImageLayout::eShaderReadOnlyOptimal);
     transition_image(cmd, gbuffer_albedo.image, ImageLayout::eColorAttachmentOptimal, ImageLayout::eShaderReadOnlyOptimal);
     transition_image(cmd, gbuffer_normal.image, ImageLayout::eColorAttachmentOptimal, ImageLayout::eShaderReadOnlyOptimal);
     
@@ -1538,10 +1589,14 @@ void Renderer::draw() {
     
     transition_image(cmd, storage_image.image, ImageLayout::eGeneral, ImageLayout::eTransferSrcOptimal);
     transition_image(cmd, swapchain_images[swapchain_image_index], ImageLayout::eUndefined, ImageLayout::eTransferDstOptimal);
-    
+
     // Copy draw image to swapchain
     copy_image_to_image(cmd, storage_image.image, swapchain_images[swapchain_image_index], draw_extent, viewport_size);
     transition_image(cmd, swapchain_images[swapchain_image_index], ImageLayout::eTransferDstOptimal, ImageLayout::eColorAttachmentOptimal);
+    
+    transition_image(cmd, depth_image.image, ImageLayout::eGeneral, ImageLayout::eDepthAttachmentOptimal, vk::ImageAspectFlagBits::eDepth);
+    draw_skybox(cmd, swapchain_image_index);
+
     draw_imgui(cmd, swapchain_image_views[swapchain_image_index]);
     transition_image(cmd, swapchain_images[swapchain_image_index], ImageLayout::eColorAttachmentOptimal, ImageLayout::ePresentSrcKHR);
     
@@ -1656,7 +1711,7 @@ void MaterialMetallicRoughness::build_shaders(Renderer* p_renderer) {
         .disable_blending()
         .enable_depth_testing(True, CompareOp::eGreaterOrEqual)
         .set_color_attachment_format(p_renderer->gbuffer_albedo.image_format)
-        .set_depth_format(p_renderer->depth_image.image_format);
+        .set_depth_format(p_renderer->depth_image_ms.image_format);
     
     ShaderCreateInfoEXT vertex_shader_info {
         .flags = ShaderCreateFlagBitsEXT::eLinkStage,
@@ -1697,9 +1752,9 @@ MaterialInstance MaterialMetallicRoughness::write_material(Device p_device, Mate
 
     writer.clear();
     writer.write_buffer(0, p_resources.data_buffer, sizeof(MaterialConstants), p_resources.data_buffer_offset, DescriptorType::eUniformBuffer);
-    writer.write_image(1, (*p_resources.albedo_texture)->image.image_view,          p_resources.albedo_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
-    writer.write_image(2, (*p_resources.normal_texture)->image.image_view,          p_resources.normal_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
-    writer.write_image(3, (*p_resources.metal_roughness_texture)->image.image_view, p_resources.metal_roughness_sampler, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+    writer.write_image(1, (*p_resources.albedo_texture)->image->image_view,          p_resources.albedo_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+    writer.write_image(2, (*p_resources.normal_texture)->image->image_view,          p_resources.normal_sampler,          ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
+    writer.write_image(3, (*p_resources.metal_roughness_texture)->image->image_view, p_resources.metal_roughness_sampler, ImageLayout::eShaderReadOnlyOptimal, DescriptorType::eCombinedImageSampler);
     writer.update_set(p_device, material_data.material_set);
 
     return material_data;

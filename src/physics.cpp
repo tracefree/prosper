@@ -21,11 +21,10 @@ JPH::PhysicsSystem Physics::physics_system;
 JPH::TempAllocatorImpl* Physics::temp_allocator;
 JPH::JobSystemThreadPool* Physics::job_system;
 
-constexpr float Physics::cDeltaTime 	= 1.0f / 60.0f;
-constexpr uint cMaxBodies 				= 1024;
+constexpr uint cMaxBodies 				= 65536;
 constexpr uint cNumBodyMutexes 			= 0;
-constexpr uint cMaxBodyPairs 			= 1024;
-constexpr uint cMaxContactConstraints 	= 1024;
+constexpr uint cMaxBodyPairs 			= 65536;
+constexpr uint cMaxContactConstraints 	= 10240;
 
 // --- BPLayerInterfaceImpl ---
 Physics::BPLayerInterfaceImpl::BPLayerInterfaceImpl() {
@@ -136,13 +135,10 @@ void Physics::initialize() {
 	physics_system.SetContactListener(&contact_listener);
 
 	body_interface = &physics_system.GetBodyInterface();
-	
-	physics_system.OptimizeBroadPhase();
 }
 
-void Physics::update() {
-	// TODO: Fixed timestep
-	physics_system.Update((gStats.frametime) / 1000.0f, 1, temp_allocator, job_system);
+void Physics::update(const double timestep) {
+	physics_system.Update(timestep, 1, temp_allocator, job_system);
 }
 
 void Physics::cleanup() {

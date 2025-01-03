@@ -20,7 +20,7 @@ typedef glm::quat Quaternion;
 
 struct Transform {
     Vec3 position { 0.0f, 0.0f, 0.0f };
-    glm::quat rotation { glm::quat(Vec3(0.0f)) };
+    glm::quat rotation { glm::identity<Quaternion>() };
     float scale { 1.0f };
 
     Mat4 get_matrix();

@@ -1,8 +1,9 @@
 #include <components/mesh_instance.h>
 #include <core/node.h>
+#include <rendering/types.h>
 
 
-void MeshInstance::draw(const Mat4& p_transform, DrawContext& p_context) {
+void MeshInstance::draw(const Mat4& p_transform, DrawContext& p_context) const {
     Mat4 node_matrix = p_transform * node->get_global_transform().get_matrix();
     
     for (auto& surface : (*mesh)->surfaces) {
@@ -20,10 +21,6 @@ void MeshInstance::draw(const Mat4& p_transform, DrawContext& p_context) {
             p_context.transparent_surfaces.emplace_back(object);
         } else {
             p_context.opaque_surfaces.emplace_back(object);
-        }   
+        }
     }
-}
-
-std::string MeshInstance::get_name() {
-    return "MeshInstance";
 }

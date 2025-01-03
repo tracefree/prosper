@@ -2,7 +2,9 @@
 
 #include <physics.h>
 #include <core/node.h>
+
 #include <Jolt/Jolt.h>
+#include <Jolt/Physics/Collision/Shape/Shape.h>
 
 void RigidBody::initialize() {
     JPH::BodyCreationSettings body_settings(
@@ -25,8 +27,7 @@ void RigidBody::initialize() {
     );
     set_linear_velocity(linear_velocity);   
     Physics::body_interface->SetFriction(body_id, 0.2f);
-    Physics::body_interface->SetRestitution(body_id, 0.8f);
-    //Physics::body_interface->AddTorque(body_id, JPH::Vec3(1.0, 5.0, 0.0));
+    Physics::body_interface->SetRestitution(body_id, 0.05f);
     Physics::body_interface->SetRotation(body_id, JPH::Quat(
         node->get_global_transform().rotation.x,
         node->get_global_transform().rotation.y,
@@ -42,11 +43,9 @@ void RigidBody::set_linear_velocity(Vec3 p_linear_velocity) {
         linear_velocity.y,
         linear_velocity.z
     ));
-
-    //Physics::body_interface->SetAngularVelocity(body_id, JPH::Vec3(1.0, 5.0, 0.0));
 }
 
-Vec3 RigidBody::get_linear_velocity() {
+Vec3 RigidBody::get_linear_velocity() const {
     // TODO: Sync with physics server
     return linear_velocity;
 }
@@ -56,14 +55,10 @@ void RigidBody::update(double delta) {
     node->set_position(position.GetX(), position.GetY(), position.GetZ());
 
     auto rotation = Physics::body_interface->GetRotation(body_id);
-    node->set_rotation(Quaternion(rotation.GetX(), rotation.GetY(), rotation.GetZ(), rotation.GetW()));
+    node->set_rotation(Quaternion(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ()));
 }
 
 void RigidBody::cleanup() {
     Physics::body_interface->RemoveBody(body_id);
 	Physics::body_interface->DestroyBody(body_id);
-}
-
-std::string RigidBody::get_name() {
-    return "RigidBody";
 }

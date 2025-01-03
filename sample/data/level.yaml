@@ -1,0 +1,61 @@
+name: Sponza
+scale: 0.008
+components:
+  - type: model
+    path: assets/Models/Sponza/glTF/Sponza.gltf
+children:
+  - name: Light1
+    position: [9.0, 1.3, -3.6]
+    components:
+      - type: point_light
+        color: [1.0, 0.2, 0.05]
+        intensity: 2.0
+
+  - name: Light2
+    position: [-9.6, 1.3, -3.6]
+    components:
+      - type: point_light
+        color: [1.0, 0.2, 0.05]
+        intensity: 2.0
+
+  - name: Light3
+    position: [-9.6, 1.3, 3.25]
+    components:
+      - type: point_light
+        color: [1.0, 0.2, 0.05]
+        intensity: 2.0
+
+  - name: Light4
+    position: [9.0, 1.3, 3.25]
+    components:
+      - type: point_light
+        color: [1.0, 0.2, 0.05]
+        intensity: 2.0
+
+  - name: Light5
+    position: [-5.0, 1.1, -1.7]
+    components:
+      - type: point_light
+        color: [0.0, 1.0, 0.0]
+        intensity: 4.0
+
+  - name: Light6
+    position: [-5.0, 1.1, 1.1]
+    components:
+      - type: point_light
+        color: [0.5, 0.0, 0.5]
+        intensity: 4.0
+
+  - name: Light7
+    position: [3.8, 1.1, -1.7]
+    components:
+      - type: point_light
+        color: [0.5, 0.5, 0.0]
+        intensity: 4.0
+
+  - name: Light8
+    position: [3.8, 1.1, 1.1]
+    components:
+      - type: point_light
+        color: [0.0, 0.5, 0.5]
+        intensity: 4.0

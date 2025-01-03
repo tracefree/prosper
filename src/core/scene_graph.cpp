@@ -1,6 +1,7 @@
 #include <core/scene_graph.h>
 #include <core/node.h>
 #include <components/camera.h>
+#include <rendering/types.h>
 
 void SceneGraph::update(double delta) {
     point_lights.clear();

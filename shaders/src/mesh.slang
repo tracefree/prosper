@@ -29,7 +29,6 @@ struct FSOutput {
 [[vk::binding(0)]]
 ParameterBlock<FragmentParams> fragment_params;
 
-
 [[vk::push_constant]]
 ConstantBuffer<Push> push_constants;
 

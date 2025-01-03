@@ -1,8 +1,10 @@
 #pragma once
 
 #include <core/component.h>
-#include <memory>
-#include <rendering/types.h>
+#include <math.h>
+
+struct DrawContext;
+struct AllocatedBuffer;
 
 struct Skeleton : public Component {
     std::vector<Mat4> joint_matrices;
@@ -12,6 +14,5 @@ struct Skeleton : public Component {
     
     void set_bone_rotation(uint32_t p_bone_index, glm::quat p_rotation);
     void set_bone_position(uint32_t p_bone_index, Vec3 p_position);
-    void draw(const Mat4& p_transform, DrawContext& p_context) override;
-    static std::string get_name();
+    void draw(const Mat4& p_transform, DrawContext& p_context) const override;
 };

@@ -8,6 +8,7 @@ struct LightingParameters {
     Texture2DMS<float4> color_image;
     Texture2DMS<float4> normal_image;
     RWTexture2D<float4> storage_image;
+    RWTexture2D<float1> resolved_depth_image;
 };
 
 ParameterBlock<LightingParameters> gbuffers;
@@ -85,6 +86,7 @@ void compute(
         float2 screen_uv = float2(texel_coord) / float2(push_constants.viewport_width, push_constants.viewport_height);
         uint shaded_mask = 0;
         float4 final_color = float4(0.0, 0.0, 0.0, 1.0);
+        float1 final_depth = 0.0;
 
         bool complex_pixel = false;
 
@@ -92,7 +94,7 @@ void compute(
         for (uint id = 0; id < sample_count; id++) {
             //    var mask = uint(gbuffers.normal_image.Load(texel_coord, id).a * 15.0);
             //    masks[id] = mask;
-            complex_pixel = complex_pixel || gbuffers.normal_image.Load(texel_coord, id).a == 1.0;
+            complex_pixel = complex_pixel || gbuffers.normal_image.Load(texel_coord, id).a > 0.9;
         }
         /*
         for (uint id = 0; id < sample_count; id++) {
@@ -152,13 +154,12 @@ void compute(
             //color *= float(sum_of_bits(coverage));
             //color /= sample_count;
 
-            final_color.rgb += color * (complex_pixel ? 1.0/sample_count : 1.0);
+            final_color.rgb += color * (complex_pixel ? (1.0 / sample_count) : 1.0);
+            final_depth.r += depth * (complex_pixel ? (1.0 / sample_count) : 1.0);
             if (!complex_pixel) {
                 break;
             }
         };
-
-        AllMemoryBarrier();
 
         final_color.rgb = tonemap_reinhard(final_color.rgb, push_constants.white_point);
 
@@ -167,5 +168,6 @@ void compute(
         }
 
         gbuffers.storage_image[texel_coord] = final_color;
+        gbuffers.resolved_depth_image[texel_coord] = final_depth;
     }
 }

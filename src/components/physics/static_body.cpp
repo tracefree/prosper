@@ -3,6 +3,7 @@
 #include <physics.h>
 #include <core/node.h>
 #include <Jolt/Jolt.h>
+#include <Jolt/Physics/Collision/Shape/Shape.h>
 
 void StaticBody::initialize() {
     JPH::BodyCreationSettings body_settings(
@@ -37,8 +38,4 @@ void StaticBody::update(double delta) {
 void StaticBody::cleanup() {
     Physics::body_interface->RemoveBody(body_id);
 	Physics::body_interface->DestroyBody(body_id);
-}
-
-std::string StaticBody::get_name() {
-    return "StaticBody";
 }

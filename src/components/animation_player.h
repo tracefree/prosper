@@ -1,8 +1,9 @@
 #pragma once
-#include <components/skeleton.h>
+
 #include <core/component.h>
 #include <resources/animation.h>
 
+struct Skeleton;
 
 struct AnimationPlayer : public Component {
     std::shared_ptr<Skeleton> skeleton;
@@ -15,7 +16,10 @@ struct AnimationPlayer : public Component {
     std::unordered_map<uint32_t, uint32_t> channel_rotation_index {};
 
     void update(double delta) override;
-    static std::string get_name();
 
     void play(std::string p_animation_name);
+
+    void initialize() override;
+
+    COMPONENT_FACTORY_H(AnimationPlayer)
 };

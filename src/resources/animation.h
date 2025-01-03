@@ -29,6 +29,6 @@ struct Animation {
 
 struct AnimationLibrary {
     std::unordered_map<std::string, Animation> animations;
-    std::vector<std::string> get_animation_list();
-    std::vector<const char*> get_animation_list_cstr();
+    std::vector<std::string> get_animation_list() const;
+    std::vector<const char*> get_animation_list_cstr() const;
 };

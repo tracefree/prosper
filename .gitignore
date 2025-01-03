@@ -1,2 +1,7 @@
 build/
 .vscode/
+sample/.vscode
+sample/assets
+sample/build
+sample/imgui.ini
+sample/prosper_sample

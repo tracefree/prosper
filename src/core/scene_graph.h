@@ -1,10 +1,8 @@
 #pragma once
 
-#include <rendering/types.h>
-#include <memory>
-
 struct Camera;
 struct Node;
+struct GPUPointLight;
 
 struct SceneGraph {
     std::shared_ptr<Node> root;

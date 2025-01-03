@@ -20,9 +20,16 @@ struct VertexOut {
     float3 position_world;
 }
 
+struct SkyboxParameters {
+    SamplerCube<float4> skybox_image;
+};
+
 struct Push {
     float4x4 view_projection;
 }
+
+[[vk::binding(0)]]
+ParameterBlock<SkyboxParameters> skybox_parameters;
 
 [[vk::push_constant]]
 ConstantBuffer<Push> push_constants;
@@ -43,8 +50,11 @@ float4 fragment(
     float3 position_world,
 ) : SV_Target
 {
-    let bottom_color = float4(0.3, 0.2, 0.2, 1.0);
+    return skybox_parameters.skybox_image.Sample(position_world);
+    /*
+    var bottom_color = float4(0.3, 0.2, 0.2, 1.0);
     let top_color = float4(0.3, 0.3, 0.9, 1.0);
     let theta = acos(-position_world.y / length(position_world));
     return lerp(bottom_color, top_color, clamp(theta / 3.141, 0.0, 1.0));
+    */
 }

@@ -3,7 +3,10 @@
 #include <core/component.h>
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/Body.h>
-#include <Jolt/Physics/Collision/Shape/Shape.h>
+
+namespace JPH {
+    class Shape;
+}
 
 struct RigidBody : public Component {
     JPH::BodyID body_id;
@@ -11,11 +14,9 @@ struct RigidBody : public Component {
 
     Vec3 linear_velocity;
 
-    void initialize();
+    void initialize() override;
     void set_linear_velocity(Vec3 p_linear_velocity);
-    Vec3 get_linear_velocity();
+    Vec3 get_linear_velocity() const;
     void update(double delta) override;
     void cleanup() override;
-
-    static std::string get_name();
 };

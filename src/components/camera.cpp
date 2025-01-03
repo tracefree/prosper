@@ -6,8 +6,10 @@
 #include <util.h>
 #include <physics.h>
 
+#include <SDL3/SDL.h>
 #include <Jolt/Physics/Collision/ShapeCast.h>
-#include <print>
+#include <Jolt/Physics/Collision/Shape/SphereShape.h>
+
 
 extern Renderer gRenderer;
 
@@ -22,9 +24,12 @@ class CastCollector final : public JPH::CastShapeCollector {
 
 class CameraBodyFilter final : public JPH::BodyFilter {
     public:
-    JPH::BodyID body_to_exclude;
+    JPH::BodyID* body_to_exclude;
     virtual bool ShouldCollide(const JPH::BodyID& in_body_id) const override {
-        return (in_body_id != body_to_exclude);
+        if (body_to_exclude == nullptr) {
+            return true;
+        }
+        return (in_body_id != *body_to_exclude);
     }
 };
 
@@ -88,7 +93,7 @@ void Camera::process_input(SDL_Event& event) {
     }
 }
 
-Mat4 Camera::get_view_matrix() {
+Mat4 Camera::get_view_matrix() const {
     Mat4 translation = glm::translate(Mat4(1.0f), node->get_global_transform().position);
     Mat4 rotation = get_rotation_matrix();
     if (follow_target != nullptr) {
@@ -99,22 +104,18 @@ Mat4 Camera::get_view_matrix() {
     }
 }
 
-Mat4 Camera::get_rotation_matrix() {
+Mat4 Camera::get_rotation_matrix() const {
     glm::quat pitch_rotation = glm::angleAxis(pitch, Vec3(1.0f, 0.0f, 0.0f));
     glm::quat yaw_rotation = glm::angleAxis(yaw, Vec3(0.0f, -1.0f, 0.0f));
     return glm::toMat4(yaw_rotation * pitch_rotation);
 }
 
-Mat4 Camera::get_horizontal_rotation_matrix() {
+Mat4 Camera::get_horizontal_rotation_matrix() const {
     glm::quat yaw_rotation = glm::angleAxis(-yaw, Vec3(0.0f, 1.0f, 0.0f));
     return glm::toMat4(yaw_rotation);
 }
 
 void Camera::initialize() {
-    body_filter.body_to_exclude = body_to_exclude;
+    body_filter.body_to_exclude = &body_to_exclude;
     shape = new JPH::SphereShape(0.2f);
-}
-
-std::string Camera::get_name() {
-    return "Camera";
 }

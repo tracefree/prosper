@@ -113,8 +113,10 @@ public:
     DescriptorSet draw_image_descriptors;
     DescriptorSetLayout draw_image_descriptor_layout;
     DescriptorSetLayout storage_image_descriptor_layout;
+    DescriptorSetLayout skybox_descriptor_layout;
 
     PipelineLayout skybox_layout;
+    Resource<Texture> skybox_texture;
 
     Fence immediate_fence;
     CommandBuffer immediate_command_buffer;
@@ -158,11 +160,11 @@ public:
     void cleanup_swapchain();
     bool init_imgui();
     
-    void transition_image(CommandBuffer p_cmd, Image p_image, ImageLayout p_current_layout, ImageLayout p_target_layout);
+    void transition_image(CommandBuffer p_cmd, Image p_image, ImageLayout p_current_layout, ImageLayout p_target_layout, ImageAspectFlags p_aspect_flags = ImageAspectFlagBits::eNone);
     void copy_image_to_image(CommandBuffer p_cmd, Image p_source, Image p_destination, Extent2D source_size, Extent2D destination_size);
     void immediate_submit(std::function<void(CommandBuffer p_cmd)>&& function);
 
-    void draw_skybox(CommandBuffer p_cmd);
+    void draw_skybox(CommandBuffer p_cmd, uint p_swapchain_image_index);
     void draw_geometry(CommandBuffer p_cmd);
     void draw_lighting(CommandBuffer p_cmd);
     void draw_imgui(CommandBuffer p_cmd, ImageView p_target_image_view);
@@ -178,6 +180,7 @@ public:
 
     AllocatedImage gbuffer_albedo {};
     AllocatedImage gbuffer_normal {};
+    AllocatedImage depth_image_ms {};
     AllocatedImage depth_image {};
     Extent2D draw_extent;
 

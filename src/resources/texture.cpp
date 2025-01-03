@@ -1,18 +1,18 @@
 #include <resources/texture.h>
 #include <rendering/renderer.h>
+#include <rendering/types.h>
 #include <stb_image.h>
 #include <core/resource_manager.h>
 
 extern Renderer gRenderer;
 
-
 template<>
 void Resource<Texture>::unload() {
-    gRenderer.destroy_image(pointer->image);
+    gRenderer.destroy_image(*pointer->image);
 };
 
 template<>
-void ResourceManager::load<Texture, vk::Format>(const char* p_guid, vk::Format p_format) {
+std::shared_ptr<Resource<Texture>> ResourceManager::load<Texture, vk::Format>(const char* p_guid, vk::Format p_format) {
     auto file_path = std::filesystem::path(p_guid);
     AllocatedImage new_image {};
     if (file_path.extension() == ".ktx2") {
@@ -75,6 +75,8 @@ void ResourceManager::load<Texture, vk::Format>(const char* p_guid, vk::Format p
     }
     
     auto& resource = (*ResourceManager::get<Texture>(p_guid));
-    resource->image = new_image;
+    resource->image = std::make_unique<AllocatedImage>(new_image);
     resource.set_load_status(LoadStatus::LOADED);
+
+    return ResourceManager::get<Texture>(p_guid);
 }

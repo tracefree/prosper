@@ -6,6 +6,7 @@
 #include <components/animation_player.h>
 #include <core/node.h>
 #include <core/scene_graph.h>
+#include <yaml.h>
 #include <Jolt/Physics/Collision/Shape/RotatedTranslatedShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
@@ -13,13 +14,14 @@
 #include <print>
 
 extern SceneGraph scene;
-extern std::shared_ptr<AnimationPlayer> animation_player;
 
 void CharacterController::process_input(SDL_Event& event) {
 
 }
 
 void CharacterController::update(double delta) {
+    auto animation_player = node->get_component<AnimationPlayer>();
+
     const bool grounded = character->GetGroundState() == JPH::CharacterBase::EGroundState::OnGround;
     
     if (!grounded) {
@@ -94,12 +96,18 @@ void CharacterController::initialize() {
     settings->mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -0.3f);
     character = new JPH::CharacterVirtual(settings, JPH::RVec3::sZero(), JPH::Quat::sIdentity(), 0, &Physics::physics_system);
     character->SetPosition(JPH::Vec3::sZero());
+
+    auto camera = scene.camera->get_component<Camera>();
+    camera->body_to_exclude = character->GetInnerBodyID();
+    std::println("BODYID: {}", camera->body_to_exclude.GetIndex());
+    camera->follow_target = node;
+    camera->yaw = M_PI_2;
 }
 
 void CharacterController::cleanup() {
     // TODO: Needed?
 }
 
-std::string CharacterController::get_name() {
-    return "CharacterController";
+COMPONENT_FACTORY_IMPL(CharacterController, character_controller) {
+
 }
