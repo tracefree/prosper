@@ -394,7 +394,6 @@ void ModelData::initialize() {
             auto result = JPH::MeshShape::sRestoreFromBinaryState(stream_in);
             collision_file.close();
             JPH::Ref<JPH::Shape> restored_shape;
-            std::println("Valid? {}", result.IsValid());
             if (result.IsValid()) {
                 restored_shape = result.Get();
                 auto static_body = node->add_component<StaticBody>();

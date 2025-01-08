@@ -22,17 +22,6 @@ void StaticBody::initialize() {
         JPH::EActivation::Activate
     );
     Physics::body_interface->SetFriction(body_id, 0.2f);
-    /*
-    Physics::body_interface->SetRotation(body_id, JPH::Quat(
-        node->get_global_transform().rotation.x,
-        node->get_global_transform().rotation.y,
-        node->get_global_transform().rotation.z,
-        node->get_global_transform().rotation.w
-    ), JPH::EActivation::Activate); */
-}
-
-void StaticBody::update(double delta) {
-    // TODO: Anything?
 }
 
 void StaticBody::cleanup() {

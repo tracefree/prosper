@@ -408,6 +408,7 @@ bool Renderer::create_skybox_shader() {
     if (std::filesystem::exists("assets/textures/skybox.ktx2")) {
         skybox_texture = *ResourceManager::load<Texture>("assets/textures/skybox.ktx2", vk::Format::eR8G8B8A8Srgb);
         skybox_texture.reference();
+        skybox_texture.set_load_status(LoadStatus::LOADED);
     }
 
     deletion_queue.push_function([&]() {

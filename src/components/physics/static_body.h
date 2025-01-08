@@ -14,6 +14,5 @@ struct StaticBody : public Component {
     const JPH::Shape* shape;
 
     void initialize() override;
-    void update(double delta) override;
     void cleanup() override;
 };

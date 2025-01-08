@@ -9,7 +9,7 @@ namespace JPH {
 
 struct CharacterController : public Component {
     bool enabled { true };
-    Vec3 target_velocity;
+    Vec3 target_velocity {};
     JPH::CharacterVirtual* character;
 
     void update(double delta) override;

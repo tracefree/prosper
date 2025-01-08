@@ -80,6 +80,12 @@ namespace prosper {
     }
 
     bool iterate() {
+        static bool first = true;
+        if (first) {
+            first = false;
+            Physics::physics_system.OptimizeBroadPhase();
+        }
+        
         auto start_time = std::chrono::system_clock::now();
 
         SDL_Event event;
@@ -209,7 +215,7 @@ namespace prosper {
 #if FLOOR
         // Floor
         auto floor = Node::create("Floor");
-        level->add_child(floor);
+        scene.root->add_child(floor);
         auto static_body = floor->add_component<StaticBody>();
         floor->set_position(0.0, -1.0, 0.0);
         static_body->shape = new JPH::BoxShape(JPH::Vec3(100.0, 1.0, 100.0));
