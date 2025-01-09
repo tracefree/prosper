@@ -12,6 +12,9 @@ struct AnimationPlayer : public Component {
     float current_time {0.0f};
     bool playing = true;
 
+    Vec3 previous_root_motion_position {};
+    Vec3 root_motion_velocity {};
+
     std::unordered_map<uint32_t, uint32_t> channel_position_index {};
     std::unordered_map<uint32_t, uint32_t> channel_rotation_index {};
 

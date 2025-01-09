@@ -15,19 +15,16 @@
 
 extern SceneGraph scene;
 
+/*
 class CharacterBodyFilter final : public JPH::BodyFilter {
     public:
-    JPH::BodyID* body_to_exclude;
     virtual bool ShouldCollide(const JPH::BodyID& in_body_id) const override {
-        //std::println("Coll? {}", in_body_id.GetIndex());
-        if (body_to_exclude == nullptr) {
-            return true;
-        }
-        return (in_body_id != *body_to_exclude);
+        return true;
     }
 };
 
 CharacterBodyFilter character_body_filter;
+*/
 
 void CharacterController::process_input(SDL_Event& event) {
 
@@ -35,10 +32,9 @@ void CharacterController::process_input(SDL_Event& event) {
 
 void CharacterController::update(double delta) {
     if (delta == 0.0) { return;}
-    auto animation_player = node->get_component<AnimationPlayer>();
+    const auto animation_player = node->get_component<AnimationPlayer>();
 
     const bool grounded = (character->GetGroundState() == JPH::CharacterBase::EGroundState::OnGround);
-    
     if (!grounded) {
         target_velocity.y -= 9.81f * float(delta);
         if (animation_player->current_animation != "Air-loop") {
@@ -48,20 +44,19 @@ void CharacterController::update(double delta) {
        target_velocity.y = (Input::is_pressed(SDL_SCANCODE_SPACE)) ? 4.0f : 0.0f;
     }
     
-    const float speed = Input::is_pressed(SDL_SCANCODE_LSHIFT) ? 5.0f : 3.0f;
     const Vec2 movement_input = enabled ? Input::get_movement_input() : Vec2(0.0f);
     const Vec3 movement_direction = Mat3(scene.camera->get_component<Camera>()->get_horizontal_rotation_matrix()) * Vec3(movement_input.x, 0.0f, -movement_input.y);
-    const Vec3 planar_velocity = movement_direction * speed;
-    if (glm::length(planar_velocity) > 0.0f) {
-        Vec2 current_planar_velocity(target_velocity.x, target_velocity.z);
-        Vec2 target_planar_velocity(planar_velocity.x, planar_velocity.z);
-        Vec2 new_planar_velocity = Math::interpolate(current_planar_velocity, target_planar_velocity, 0.05f, delta);
-        target_velocity.x = new_planar_velocity.x;
-        target_velocity.z = new_planar_velocity.y;
-
+    if (glm::length(movement_direction) > 0.0f) {
         glm::quat target_rotation = glm::quatLookAt(-movement_direction, Vec3(0.0f, 1.0f, 0.0f));
-        float weight = (1.0f - std::exp(-(float(delta)/0.075f)));
+        float weight = (1.0f - std::exp(-(float(delta)/0.025f)));
         node->set_rotation(glm::slerp(node->get_rotation(), target_rotation, weight));
+        
+        if (grounded) {
+            Vec3 animated_velocity = node->get_rotation() * animation_player->root_motion_velocity / float(delta);
+            target_velocity.x = animated_velocity.x;
+            target_velocity.z = animated_velocity.z;
+        }
+        
     } else if (grounded) {
         target_velocity.x = 0.0f;
         target_velocity.z = 0.0f;

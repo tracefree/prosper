@@ -25,18 +25,6 @@ void ModelData::cleanup() {
 
     for (auto& [key, value] : meshes) {
         value->unreference();
-        //value.unreference();
-        /*
-        renderer->destroy_buffer(value->mesh_buffers.index_buffer);
-        renderer->destroy_buffer(value->mesh_buffers.vertex_buffer);
-        renderer->destroy_buffer(value->mesh_buffers.skinned_vertex_buffer);
-        if (value->mesh_buffers.skinning_data_buffer.buffer != VK_NULL_HANDLE) {
-            renderer->destroy_buffer(value->mesh_buffers.skinning_data_buffer);
-        }
-        if (value->mesh_buffers.joint_matrices_buffer.buffer != VK_NULL_HANDLE) {
-            renderer->destroy_buffer(value->mesh_buffers.joint_matrices_buffer);
-        }
-        */
     }
 
     for (auto& texture : textures) {

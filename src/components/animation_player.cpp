@@ -22,7 +22,7 @@ void AnimationPlayer::update(double delta) {
     for (auto [bone_index, channel] : animation.channels) {
         if (channel.position_keyframes.size() > 2) {
             uint current_index = channel_position_index[bone_index];
-            uint next_index = (current_index + 1) < (channel.position_keyframes.size() - 1) ?
+            uint next_index = (current_index < (channel.position_keyframes.size() - 1)) ?
                 (current_index + 1) : 0;
             
             auto current_keyframe = channel.position_keyframes[current_index];
@@ -33,7 +33,7 @@ void AnimationPlayer::update(double delta) {
                 (current_time > next_keyframe.time && current_time < current_keyframe.time);
             while (advance_keyframe) {
                 current_index = next_index;
-                next_index = (current_index + 1) < (channel.position_keyframes.size() - 1) ?
+                next_index = (current_index < (channel.position_keyframes.size() - 1)) ?
                     (current_index + 1) : 0;
                 current_keyframe = channel.position_keyframes[current_index];
                 next_keyframe    = channel.position_keyframes[next_index];
@@ -53,8 +53,18 @@ void AnimationPlayer::update(double delta) {
                 elapsed_time += animation.length;
             }
             float weight = elapsed_time / time_difference;
-            Vec3 blended_position = current_keyframe.position * (1.0f - weight) + next_keyframe.position * weight;
-            skeleton->set_bone_position(bone_index, blended_position);
+            
+            if (bone_index == skeleton->root_motion_index) {
+                Vec3 blended_position = (current_keyframe.position) * (1.0f - weight) + next_keyframe.position * weight;
+                if (looped) {
+                    previous_root_motion_position -= channel.position_keyframes[channel.position_keyframes.size() - 1].position;
+                }
+                root_motion_velocity = blended_position - previous_root_motion_position;
+                previous_root_motion_position = blended_position;
+            } else {
+                Vec3 blended_position = current_keyframe.position * (1.0f - weight) + next_keyframe.position * weight;
+                skeleton->set_bone_position(bone_index, blended_position);
+            }
         } else if (channel.position_keyframes.size() == 2) {
             auto current_keyframe = channel.position_keyframes[0];
             auto next_keyframe    = channel.position_keyframes[1];
@@ -70,12 +80,21 @@ void AnimationPlayer::update(double delta) {
             }
             float weight = elapsed_time / time_difference;
 
-            Vec3 blended_position = current_keyframe.position * (1.0f - weight) + next_keyframe.position * weight;
-            skeleton->set_bone_position(bone_index, blended_position);
+            if (bone_index == skeleton->root_motion_index) {
+                Vec3 blended_position = (current_keyframe.position) * (1.0f - weight) + next_keyframe.position * weight;                
+                if (looped) {
+                    previous_root_motion_position -= channel.position_keyframes[channel.position_keyframes.size() - 1].position;
+                }
+                root_motion_velocity = blended_position - previous_root_motion_position;
+                previous_root_motion_position = blended_position;
+            } else {
+                Vec3 blended_position = current_keyframe.position * (1.0f - weight) + next_keyframe.position * weight;
+                skeleton->set_bone_position(bone_index, blended_position);
+            }
+            
         } else if (channel.position_keyframes.size() == 1) {
             skeleton->set_bone_position(bone_index, channel.position_keyframes[0].position);
         }
-        
         
         if (channel.rotation_keyframes.size() > 2) {
             uint32_t current_index = channel_rotation_index[bone_index];
@@ -141,6 +160,7 @@ void AnimationPlayer::update(double delta) {
 void AnimationPlayer::play(std::string p_animation_name) {
     channel_position_index.clear();
     channel_rotation_index.clear();
+    previous_root_motion_position = Vec3(0.0f);
 
     current_animation = p_animation_name;
     if (library.animations.find(current_animation) == library.animations.end()) {

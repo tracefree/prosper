@@ -63,17 +63,6 @@ FetchContent_MakeAvailable(stb)
 add_library(stb INTERFACE)
 target_include_directories(stb INTERFACE build/_deps/stb_src/)
 
-# - KTX-Software
-set(KTX_FEATURE_DOC OFF)
-set(KTX_FEATURE_GL_UPLOAD OFF)
-set(KTX_FEATURE_TOOLS OFF)
-FetchContent_Declare(
-  KTX-Software
-  GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
-  GIT_TAG main
-)
-FetchContent_MakeAvailable(KTX-Software)
-
 # Jolt Physics
 FetchContent_Declare(
   JoltPhysics
@@ -83,6 +72,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JoltPhysics)
 
+# - KTX-Software
+set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS_INIT} -fPIC")
+set(KTX_FEATURE_DOC OFF)
+set(KTX_FEATURE_GL_UPLOAD OFF)
+set(KTX_FEATURE_TOOLS OFF)
+FetchContent_Declare(
+  KTX-Software
+  GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
+  GIT_TAG main
+)
+FetchContent_MakeAvailable(KTX-Software)
 
 # --- Main project ---
 #set(CMAKE_BUILD_TYPE Debug)
