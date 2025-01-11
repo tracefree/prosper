@@ -128,9 +128,15 @@ add_library(prosper SHARED
     src/components/point_light.cpp
     src/components/skeleton.cpp
     src/components/skinned_mesh.cpp
+    src/components/state_machine.cpp
     
     src/components/physics/rigid_body.cpp
     src/components/physics/static_body.cpp
+
+    src/states/air.cpp
+    src/states/dodge.cpp
+    src/states/idle.cpp
+    src/states/move.cpp
 )
 
 set_property(

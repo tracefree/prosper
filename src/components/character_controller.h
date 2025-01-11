@@ -13,9 +13,7 @@ struct CharacterController : public Component {
     JPH::CharacterVirtual* character;
 
     void update(double delta) override;
-    void process_input(SDL_Event& event) override;
     void initialize() override;
-    void cleanup() override;
 
     COMPONENT_FACTORY_H(CharacterController)
 };

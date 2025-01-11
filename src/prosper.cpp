@@ -28,10 +28,13 @@
 
 #include <resources/scene.h>
 
+#include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/CylinderShape.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
+
+#include <thread>
 
 SDL_Window* gWindow{ nullptr };
 Renderer gRenderer;
@@ -42,6 +45,8 @@ auto boot_time = std::chrono::system_clock::now();
 bool gValidationLayersEnabled { true };
 
 std::shared_ptr<Node> player;
+std::thread physics_worker;
+static bool engine_running { false };
 
 namespace prosper {
     double accumulated_time = 0;
@@ -148,10 +153,20 @@ namespace prosper {
     }
 
     void quit() {
+        engine_running = false;
+      //  physics_worker.join();
         gRenderer.device.waitIdle();
         scene.cleanup();
         gRenderer.cleanup();
         Physics::cleanup();
+    }
+
+    void physics_iterate() {
+        while (engine_running) {
+            Physics::update(fixed_timestep);
+            std::this_thread::sleep_for(std::chrono::microseconds(16667));
+            std::println("physs");
+        }
     }
 
     bool initialize() {
@@ -221,12 +236,16 @@ namespace prosper {
         static_body->shape = new JPH::BoxShape(JPH::Vec3(100.0, 1.0, 100.0));
         static_body->initialize();
 #endif
-
+        
         scene.camera = Node::create("Camera");
         scene.camera->set_position(0.0f, 1.4f, 0.0f);
         scene.root->add_child(scene.camera);
         auto camera = scene.camera->add_component<Camera>();
         camera->initialize();
+
+        engine_running = true;
+        // TODO: Figure out thread safety
+        //physics_worker = std::thread(physics_iterate);
 
         SDL_ShowWindow(gWindow);
         SDL_SetWindowRelativeMouseMode(gWindow, true);

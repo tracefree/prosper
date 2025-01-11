@@ -6,7 +6,9 @@
 #include <yaml.h>
 
 void AnimationPlayer::update(double delta) {
+    updating = true;
     if (!playing || library.animations.find(current_animation) == library.animations.end()) {
+        updating = false;
         return;
     }
 
@@ -16,6 +18,12 @@ void AnimationPlayer::update(double delta) {
     bool looped = current_time >= animation.length;
     
     if (looped) {
+        finished.emit(current_animation);
+        if (interrupted) {
+            interrupted = false;
+            updating = false;
+            return;
+        }
         current_time -= animation.length;
     }
 
@@ -155,12 +163,17 @@ void AnimationPlayer::update(double delta) {
     }
     
     skeleton->node->refresh_transform(Transform()); // TODO: Why?
+    updating = false;
 }
 
 void AnimationPlayer::play(std::string p_animation_name) {
     channel_position_index.clear();
     channel_rotation_index.clear();
     previous_root_motion_position = Vec3(0.0f);
+
+    if (updating) {
+        interrupted = true;
+    }
 
     current_animation = p_animation_name;
     if (library.animations.find(current_animation) == library.animations.end()) {
