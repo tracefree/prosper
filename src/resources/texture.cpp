@@ -12,7 +12,7 @@ void Resource<Texture>::unload() {
 };
 
 template<>
-std::shared_ptr<Resource<Texture>> ResourceManager::load<Texture, vk::Format>(const char* p_guid, vk::Format p_format) {
+Ref<Resource<Texture>> ResourceManager::load<Texture, vk::Format>(const char* p_guid, vk::Format p_format) {
     auto file_path = std::filesystem::path(p_guid);
     AllocatedImage new_image {};
     if (file_path.extension() == ".ktx2") {

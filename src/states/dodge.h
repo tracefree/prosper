@@ -1,8 +1,9 @@
 #pragma once
 
 #include <components/state_machine.h>
-#include <functional>
 #include <components/character_controller.h>
+
+#include <functional>
 
 namespace State {
     struct Dodge : public State {

@@ -2,6 +2,7 @@
 #include <math.h>
 #include <core/component.h>
 #include <type_traits>
+#include <util.h>
 
 union SDL_Event;
 
@@ -11,14 +12,14 @@ protected:
     Transform global_transform {};
     // TODO: flag to only recalculate global transform when necessary
 
-    std::unordered_map<const std::type_info*, std::shared_ptr<Component>> component_table;
+    std::unordered_map<const std::type_info*, Ref<Component>> component_table;
 
 public:
     std::string name {"New node"};
     std::weak_ptr<Node> parent;
-    std::vector<std::shared_ptr<Node>> children;
+    std::vector<Ref<Node>> children;
 
-    std::vector<std::shared_ptr<Component>> components;
+    std::vector<Ref<Component>> components;
     bool active  { true };
     bool visible { true };
 
@@ -39,18 +40,18 @@ public:
 
     Transform get_global_transform() const;
 
-    void add_child(std::shared_ptr<Node> p_child);
+    void add_child(Ref<Node> p_child);
 
     template<typename T>
     std::enable_if_t<std::is_base_of_v<Component, T>, void>
-    add_component(std::shared_ptr<T> p_component) {
+    add_component(Ref<T> p_component) {
         p_component->node = this;
         components.push_back(p_component);
         component_table[&typeid(T)] = p_component;
     }
     
     template<typename T, typename... Ts>
-    std::enable_if_t<std::is_base_of_v<Component, T>, std::shared_ptr<T>>
+    std::enable_if_t<std::is_base_of_v<Component, T>, Ref<T>>
     add_component(Ts... arguments) {
         auto component = std::make_shared<T>(arguments...);
         component->node = this;
@@ -61,7 +62,7 @@ public:
     }
 
     template<typename T>
-    std::enable_if_t<std::is_base_of_v<Component, T>, std::shared_ptr<T>>
+    std::enable_if_t<std::is_base_of_v<Component, T>, Ref<T>>
     get_component() {
         return static_pointer_cast<T>(component_table[&typeid(T)]);
     }
@@ -74,8 +75,8 @@ public:
     void draw(const Mat4& p_transform, DrawContext& p_context) const;
     void cleanup();
 
-    static std::shared_ptr<Node> create();
-    static std::shared_ptr<Node> create(std::string p_name);
+    static Ref<Node> create();
+    static Ref<Node> create(std::string p_name);
 
     Node() {};
     Node(std::string p_name);

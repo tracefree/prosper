@@ -3,13 +3,14 @@
 #include <core/component.h>
 #include <core/signal.h>
 #include <resources/animation.h>
+#include <util.h>
 
 struct Skeleton;
 
 struct AnimationPlayer : public Component {
     Signal<std::string> finished;
 
-    std::shared_ptr<Skeleton> skeleton;
+    Ref<Skeleton> skeleton;
     AnimationLibrary library;
     std::string current_animation {""};
     float current_time {0.0f};

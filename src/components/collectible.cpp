@@ -1,8 +1,9 @@
 #include <components/collectible.h>
 #include <core/node.h>
+#include <util.h>
 #include <yaml.h>
 
-extern std::shared_ptr<Node> player;
+extern Ref<Node> player;
 
 void Collectible::update(double delta) {
     if (!enabled || player == nullptr) {

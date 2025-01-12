@@ -1,5 +1,6 @@
 #pragma once
 #include <math.h>
+#include <util.h>
 
 struct DrawContext;
 struct Node;

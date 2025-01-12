@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <util.h>
 
 struct Node;
 namespace YAML {
@@ -7,8 +8,8 @@ namespace YAML {
 }
 
 struct Scene {
-    std::shared_ptr<YAML::Node> scene_state;
+    Ref<YAML::Node> scene_state;
 
-    std::shared_ptr<Node> from_data(YAML::Node p_data);
-    std::shared_ptr<Node> instantiate();
+    Ref<Node> from_data(YAML::Node p_data);
+    Ref<Node> instantiate();
 };

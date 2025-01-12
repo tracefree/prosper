@@ -44,7 +44,7 @@ vk::SampleCountFlagBits gSamples { vk::SampleCountFlagBits::e4 };
 auto boot_time = std::chrono::system_clock::now();
 bool gValidationLayersEnabled { true };
 
-std::shared_ptr<Node> player;
+Ref<Node> player;
 std::thread physics_worker;
 static bool engine_running { false };
 

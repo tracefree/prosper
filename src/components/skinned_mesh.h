@@ -5,9 +5,10 @@
 #include <memory>
 #include <rendering/types.h>
 #include <resources/mesh.h>
+#include <util.h>
 
 struct SkinnedMesh : public Component {
-    std::shared_ptr<Resource<Mesh>> mesh;
+    Ref<Resource<Mesh>> mesh;
 
     void draw(const Mat4& p_transform, DrawContext& p_context) const override;
     void cleanup() override;

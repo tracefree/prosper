@@ -2,7 +2,7 @@
 
 #include <core/resource.h>
 #include <rendering/types.h>
-
+#include <util.h>
 
 struct GPUMeshBuffers {
     AllocatedBuffer index_buffer;
@@ -19,7 +19,7 @@ struct GPUMeshBuffers {
 struct MeshSurface {
     uint32_t start_index;
     uint32_t count;
-    std::shared_ptr<MaterialInstance> material;
+    Ref<MaterialInstance> material;
 };
 
 struct Mesh {

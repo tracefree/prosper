@@ -16,7 +16,7 @@
 #include <resources/mesh.h>
 #include <resources/texture.h>
 
-const int MAX_FRAMES_IN_FLIGHT = 2;
+const int MAX_FRAMES_IN_FLIGHT = 4;
 
 using namespace vk;
 
@@ -68,16 +68,16 @@ struct MaterialMetallicRoughness {
     };
 
     struct MaterialResources {
-        std::shared_ptr<Resource<Texture>> albedo_texture;
-        Sampler albedo_sampler;
+        Ref<Resource<Texture>> albedo_texture;
+        vk::Sampler albedo_sampler;
 
-        std::shared_ptr<Resource<Texture>> normal_texture;
-        Sampler normal_sampler;
+        Ref<Resource<Texture>> normal_texture;
+        vk::Sampler normal_sampler;
 
-        std::shared_ptr<Resource<Texture>> metal_roughness_texture;
-        Sampler metal_roughness_sampler;
+        Ref<Resource<Texture>> metal_roughness_texture;
+        vk::Sampler metal_roughness_sampler;
 
-        Buffer data_buffer;
+        vk::Buffer data_buffer;
         uint32_t data_buffer_offset;
     };
 
@@ -176,7 +176,7 @@ public:
     Device device;
     SurfaceKHR surface;
     DrawContext draw_context;
-    std::unordered_map<std::string, std::shared_ptr<Node>> nodes;
+    std::unordered_map<std::string, Ref<Node>> nodes;
 
     AllocatedImage gbuffer_albedo {};
     AllocatedImage gbuffer_normal {};

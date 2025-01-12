@@ -18,7 +18,7 @@ namespace State {
     struct State {
         StateMachine* state_machine;
         Node* actor;
-        std::shared_ptr<AnimationPlayer> anim_player;
+        Ref<AnimationPlayer> anim_player;
 
         template<typename... Ts>
         void enter(Ts... p_config);

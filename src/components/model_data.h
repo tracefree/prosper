@@ -12,9 +12,9 @@ class Renderer;
 struct Skeleton;
 
 struct ModelData : public Component {
-    std::unordered_map<std::string, std::shared_ptr<Resource<Mesh>>> meshes;
-    std::vector<std::shared_ptr<Resource<Texture>>> textures;
-    std::unordered_map<std::string, std::shared_ptr<MaterialInstance>> materials;
+    std::unordered_map<std::string, Ref<Resource<Mesh>>> meshes;
+    std::vector<Ref<Resource<Texture>>> textures;
+    std::unordered_map<std::string, Ref<MaterialInstance>> materials;
 
     std::vector<Sampler> samplers;
     DescriptorAllocatorGrowable descriptor_pool;
@@ -23,7 +23,7 @@ struct ModelData : public Component {
     Renderer* renderer;
 
     std::string model_path;
-    std::shared_ptr<Skeleton> skeleton;
+    Ref<Skeleton> skeleton;
     AnimationLibrary animation_library {};
     bool skinned { false };
     int root_motion_index { -1 };

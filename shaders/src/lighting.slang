@@ -138,10 +138,10 @@ void compute(
 
             float4 position_nonlinear = mul(scene_data.inverse_projection, float4(screen_uv * 2.0 - 1.0, depth, 1.0));
             float3 position_vs = position_nonlinear.xyz / position_nonlinear.w;
-
+            
             float3 color = float3(0.0);
             if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_NORMALS) > 0) {
-                color += normal_ws * 0.5 + 0.5;
+                color += normal_roughness_sample.rgb;
             } else if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_METAL) > 0) {
                 color += float3(metallic);
             } else if ((push_constants.flags & RENDER_FLAG_BIT_SHOW_ROUGHNESS) > 0) {

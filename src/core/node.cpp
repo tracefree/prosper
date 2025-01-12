@@ -52,7 +52,7 @@ void Node::cleanup() {
     }
 }
 
-void Node::add_child(std::shared_ptr<Node> p_child) {
+void Node::add_child(Ref<Node> p_child) {
     children.push_back(p_child);
     p_child->parent = std::make_shared<Node>(*this);
 }
@@ -117,10 +117,10 @@ Transform Node::get_global_transform() const {
     return global_transform;
 }
 
-std::shared_ptr<Node> Node::create() {
+Ref<Node> Node::create() {
     return std::make_shared<Node>();
 }
 
-std::shared_ptr<Node> Node::create(std::string p_name) {
+Ref<Node> Node::create(std::string p_name) {
     return std::make_shared<Node>(p_name);
 }

@@ -2,15 +2,16 @@
 
 #include <unordered_map>
 #include <memory>
+#include <util.h>
 
 struct ResourceManager {
 private:
     template<typename T>
-    inline static std::unordered_map<std::string, std::shared_ptr<Resource<T>>> resources;
+    inline static std::unordered_map<std::string, Ref<Resource<T>>> resources;
 
 public:
     template<typename T>
-    static std::shared_ptr<Resource<T>> get(const char* p_guid) {
+    static Ref<Resource<T>> get(const char* p_guid) {
         if (!resources<T>.contains(p_guid)) {
             resources<T>[p_guid] = std::make_shared<Resource<T>>();
             resources<T>[p_guid]->guid = p_guid;
@@ -24,7 +25,7 @@ public:
     }
 
     template<typename T, typename... Ts>
-    static std::shared_ptr<Resource<T>> load(const char* p_guid, Ts... p_arguments);
+    static Ref<Resource<T>> load(const char* p_guid, Ts... p_arguments);
 
     template<typename T>
     static void save(const char* p_guid);
