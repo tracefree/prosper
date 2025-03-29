@@ -38,6 +38,9 @@ General game engine features:
 - [ ] RPG gameplay systems
 - [ ] etc.
 
+Here's a short demonstration of the custom skeletal animation system:
+[animation.webm](https://github.com/user-attachments/assets/63fabd7d-53f6-4e16-88f1-a4f0dca6ebe6)
+
 ## Installation instructions
 ### Linux (and probably Mac and BSD)
 You'll need to have installed the Vulkan SDK, SDL3, and glm libraries on your system. To build with CMake, run these commands in the terminal inside the project's directoy:
