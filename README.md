@@ -39,6 +39,7 @@ General game engine features:
 - [ ] etc.
 
 Here's a short demonstration of the custom skeletal animation system:
+
 [animation.webm](https://github.com/user-attachments/assets/63fabd7d-53f6-4e16-88f1-a4f0dca6ebe6)
 
 ## Installation instructions
