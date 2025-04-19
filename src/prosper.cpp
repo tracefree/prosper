@@ -136,6 +136,27 @@ namespace prosper {
         }
         ImGui::End();
 
+        if (ImGui::Begin("Controls")) {
+            ImGui::Text("Move: WASD");
+            ImGui::Text("Look around: Mouse");
+            ImGui::Text("Jump: Space");
+            ImGui::Text("Sprint: Hold left Shift");
+            ImGui::Text("Roll: Left Alt");
+            ImGui::Text("Toggle cursor: Escape");
+            ImGui::Text("Exit: Alt+F4");
+        }
+        ImGui::End();
+
+        if (Collectible::total_count > 0) {
+            if (ImGui::Begin("Collectibles")) {
+                ImGui::Text("Krapfens collected: %d / %d", Collectible::collected_count, Collectible::total_count);
+                if (Collectible::collected_count >= Collectible::total_count) {
+                    ImGui::Text("You win!");
+                }
+            }
+            ImGui::End();
+        }
+
         ImGui::Render();
         // ----------
 

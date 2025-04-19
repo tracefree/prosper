@@ -39,6 +39,8 @@ struct StateMachine : public Component {
 
     Signal<std::string> transitioned;
 
+    float jump_speed { 4.0f };
+
     template<typename T, typename... Ts>
     std::enable_if_t<std::is_base_of_v<State::State, T>, void>
     transition_to(Ts... args) {

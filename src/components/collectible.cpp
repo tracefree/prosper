@@ -5,6 +5,9 @@
 
 extern Ref<Node> player;
 
+int Collectible::collected_count = 0;
+int Collectible::total_count = 0;
+
 void Collectible::update(double delta) {
     if (!enabled || player == nullptr) {
         return;
@@ -16,11 +19,15 @@ void Collectible::update(double delta) {
         node->get_global_transform().position
     );
     
-    if (distance < 1.0f) {
+    float radius = node->get_scale() * 0.15f;
+    if (distance < radius) {
         collected.emit(node);
         enabled = false;
         node->visible = false;
+        Collectible::collected_count += 1;
     }
 }
 
-COMPONENT_FACTORY_IMPL(Collectible, collectible) {}
+COMPONENT_FACTORY_IMPL(Collectible, collectible) {
+    Collectible::total_count += 1;
+}

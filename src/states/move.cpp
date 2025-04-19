@@ -29,7 +29,7 @@ void State::Move::update(double delta) {
     } else if (anim_player->current_animation != "Sprint-loop" && Input::is_pressed(SDL_SCANCODE_LSHIFT)) {
         anim_player->play("Sprint-loop");
     }
-    character_controller->target_velocity.y = (Input::is_pressed(SDL_SCANCODE_SPACE)) ? 4.0f : 0.0f;
+    character_controller->target_velocity.y = (Input::is_pressed(SDL_SCANCODE_SPACE)) ? state_machine->jump_speed : 0.0f;
     
 
     const Vec2 movement_input = Input::get_movement_input();

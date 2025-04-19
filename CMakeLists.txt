@@ -8,6 +8,7 @@ find_package(Vulkan REQUIRED)
 include(FetchContent)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS_INIT} -std=c++20 -fPIC")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # - VulkanMemoryAllocator
 FetchContent_Declare(

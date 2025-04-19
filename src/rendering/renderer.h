@@ -97,6 +97,7 @@ public:
     Format swapchain_image_format;
     std::vector<Image> swapchain_images;
     std::vector<ImageView> swapchain_image_views;
+    SurfaceCapabilitiesKHR surface_capabilities;
 
     FrameData frames[MAX_FRAMES_IN_FLIGHT];
     

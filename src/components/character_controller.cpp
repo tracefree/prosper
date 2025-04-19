@@ -17,6 +17,7 @@ extern SceneGraph scene;
 
 
 void CharacterController::update(double delta) {
+    JPH::RVec3 current_position = character->GetPosition();
     character->SetLinearVelocity(JPH::Vec3(target_velocity.x, target_velocity.y, target_velocity.z));
     JPH::CharacterVirtual::ExtendedUpdateSettings update_settings;
     character->ExtendedUpdate(
@@ -31,10 +32,15 @@ void CharacterController::update(double delta) {
     );
     JPH::RVec3 new_position = character->GetPosition();
     node->set_position(Vec3(new_position.GetX(), new_position.GetY(), new_position.GetZ()));
+
+    JPH::RVec3 actual_velocity = new_position - current_position;
+    if (actual_velocity.GetY() <= 0.01 && target_velocity.y > 0.0) {
+        target_velocity.y = 0.0;
+    }
 }
 
 void CharacterController::initialize() {
-    auto shape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0.0, 0.8, 0.0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.5f, 0.3f)).Create().Get();
+    auto shape = JPH::RotatedTranslatedShapeSettings(JPH::Vec3(0.0, 0.9, 0.0), JPH::Quat::sIdentity(), new JPH::CapsuleShape(0.6f, 0.3f)).Create().Get();
     JPH::Ref<JPH::CharacterVirtualSettings> settings = new JPH::CharacterVirtualSettings();
     settings->mMaxSlopeAngle = 0.0;
     settings->mShape = shape;

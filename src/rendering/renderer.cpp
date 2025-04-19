@@ -156,7 +156,7 @@ bool Renderer::create_swapchain() {
 
     SwapchainCreateInfoKHR create_info {
         .surface = surface,
-        .minImageCount = 3,
+        .minImageCount = surface_capabilities.minImageCount,
         .imageFormat = swapchain_image_format,
         .imageExtent = viewport_size,
         .imageArrayLayers = 1,
@@ -1184,8 +1184,8 @@ bool Renderer::init_imgui() {
         .Device              = device,
         .Queue               = graphics_queue,
         .DescriptorPool      = imgui_pool,
-        .MinImageCount       = 3,
-        .ImageCount          = 3,
+        .MinImageCount       = surface_capabilities.minImageCount,
+        .ImageCount          = surface_capabilities.minImageCount,
         .MSAASamples = (VkSampleCountFlagBits) SampleCountFlagBits::e1,
         .UseDynamicRendering = true,
         .PipelineRenderingCreateInfo = {
@@ -1233,7 +1233,16 @@ bool Renderer::initialize(uint32_t p_extension_count, const char* const* p_exten
 
     if (!create_physical_device()) {
         print("Could not create physical device!");
+        return false;
     }
+
+    auto capabilities_result = physical_device.getSurfaceCapabilitiesKHR(surface);
+    if (capabilities_result.result != Result::eSuccess) {
+        print("Could not get surface capabilities!");
+        return false;
+    }
+    surface_capabilities = capabilities_result.value;
+
     if (!create_device()) {
         print("Could not create logical device!");
         return false;

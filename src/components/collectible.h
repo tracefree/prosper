@@ -7,6 +7,9 @@
 struct Collectible : Component {
     Signal<Node*> collected {};
     bool enabled { true };
+    
+    static int collected_count;
+    static int total_count;
 
     void update(double delta) override;
 

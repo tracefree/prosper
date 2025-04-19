@@ -13,7 +13,7 @@ void State::Idle::update(double delta) {
 
     const auto character_controller = actor->get_component<CharacterController>();
     if (Input::is_pressed(SDL_SCANCODE_SPACE)) {
-        character_controller->target_velocity.y = 4.0f;
+        character_controller->target_velocity.y = state_machine->jump_speed;
         state_machine->transition_to<Air>();
         return;
     }
