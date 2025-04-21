@@ -888,8 +888,8 @@ void Renderer::generate_mipmaps(CommandBuffer p_cmd, Image p_image, Extent2D p_s
                 },
             };
 
-            blit_region.srcOffsets[1] = {int(p_size.width), int(p_size.height), 1};
-            blit_region.dstOffsets[1] = {int(half_size.width), int(half_size.height), 1};
+            blit_region.srcOffsets[1] = Offset3D {int(p_size.width), int(p_size.height), 1};
+            blit_region.dstOffsets[1] = Offset3D {int(half_size.width), int(half_size.height), 1};
 
             BlitImageInfo2 blit_info {
                 .srcImage = p_image,

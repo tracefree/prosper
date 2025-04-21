@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(prosper VERSION 0.2 LANGUAGES CXX)
+project(prosper VERSION 0.2 LANGUAGES CXX C)
 
 # --- Dependencies ---
 #set(CMAKE_CXX_FLAGS "-O2 -flto -fno-fat-lto-objects")
@@ -42,16 +42,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 add_library(imgui STATIC
-  build/_deps/imgui-src/imgui.cpp
-  build/_deps/imgui-src/imgui_draw.cpp
-  build/_deps/imgui-src/imgui_tables.cpp
-  build/_deps/imgui-src/imgui_widgets.cpp
-  build/_deps/imgui-src/backends/imgui_impl_sdl3.cpp
-  build/_deps/imgui-src/backends/imgui_impl_vulkan.cpp
+  ${imgui_SOURCE_DIR}/imgui.cpp
+  ${imgui_SOURCE_DIR}/imgui_draw.cpp
+  ${imgui_SOURCE_DIR}/imgui_tables.cpp
+  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
 )
 target_include_directories(imgui PUBLIC
-  build/_deps/imgui-src/
-  build/_deps/imgui-src/backends/
+  ${imgui_SOURCE_DIR}
+  ${imgui_SOURCE_DIR}/backends/
 )
 
 # - STB
@@ -62,7 +62,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(stb)
 add_library(stb INTERFACE)
-target_include_directories(stb INTERFACE build/_deps/stb_src/)
+target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
 
 # Jolt Physics
 FetchContent_Declare(
@@ -78,6 +78,7 @@ set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS_INIT} -fPIC")
 set(KTX_FEATURE_DOC OFF)
 set(KTX_FEATURE_GL_UPLOAD OFF)
 set(KTX_FEATURE_TOOLS OFF)
+set(KTX_FEATURE_STATIC_LIBRARY ON CACHE BOOL "Build KTX as a static library" FORCE)
 FetchContent_Declare(
   KTX-Software
   GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
@@ -148,9 +149,9 @@ set_property(
 target_include_directories(prosper PUBLIC
   src
   shaders/src/common
-  build/_deps/stb-src/
-  build/_deps/ktx-software-src/include/
-  build/_deps/joltphysics-src/
+  ${stb_SOURCE_DIR}
+  ${ktx-software_SOURCE_DIR}/include/
+  ${joltphysics_SOURCE_DIR}
 )
 
 target_compile_definitions(prosper PUBLIC
@@ -165,4 +166,4 @@ target_compile_definitions(prosper PUBLIC
 
 target_precompile_headers(prosper PUBLIC <optional> <vector> <string> <unordered_map> <print> <memory> "src/rendering/vulkan_pch.h")
 target_link_libraries(imgui PUBLIC SDL3::SDL3 Vulkan::Vulkan)
-target_link_libraries(prosper PUBLIC yaml-cpp::yaml-cpp fastgltf::fastgltf imgui ${CMAKE_SOURCE_DIR}/build/_deps/ktx-software-build/libktx.a Jolt SDL3::SDL3 Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator stb)
+target_link_libraries(prosper PUBLIC yaml-cpp::yaml-cpp fastgltf::fastgltf imgui ktx Jolt SDL3::SDL3 Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator stb)

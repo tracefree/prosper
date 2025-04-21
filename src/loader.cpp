@@ -60,9 +60,8 @@ SamplerAddressMode extract_address_mode(fastgltf::Wrap wrap) {
             return SamplerAddressMode::eMirroredRepeat;
         case fastgltf::Wrap::Repeat:
             return SamplerAddressMode::eRepeat;
-        deftault:
-            return SamplerAddressMode::eRepeat;
     }
+    return SamplerAddressMode::eRepeat;
 }
 
 SamplerMipmapMode extract_mipmap_mode(fastgltf::Filter filter)
