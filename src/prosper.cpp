@@ -43,12 +43,6 @@ SceneGraph scene;
 vk::SampleCountFlagBits gSamples { vk::SampleCountFlagBits::e4 };
 auto boot_time = std::chrono::system_clock::now();
 
-#ifdef NDEBUG
-constexpr bool gValidationLayersEnabled { false };
-#else
-constexpr bool gValidationLayersEnabled { true };
-#endif
-
 Ref<Node> player;
 std::thread physics_worker;
 static bool engine_running { false };

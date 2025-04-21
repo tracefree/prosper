@@ -21,7 +21,6 @@
 #include <imgui_impl_vulkan.h>
 
 extern PerformanceStats gStats;
-extern bool gValidationLayersEnabled;
 extern vk::SampleCountFlagBits gSamples;
 extern SceneGraph scene;
 
@@ -33,9 +32,9 @@ bool Renderer::create_vulkan_instance(uint32_t p_extension_count, const char* co
     };
     
     std::vector<const char*> enabled_layers;
-    if (gValidationLayersEnabled) {
-        enabled_layers.emplace_back("VK_LAYER_KHRONOS_validation");
-    }
+#ifdef DEBUG
+    enabled_layers.emplace_back("VK_LAYER_KHRONOS_validation");
+#endif
 
     InstanceCreateInfo create_info {
         .pApplicationInfo = &application_info,
