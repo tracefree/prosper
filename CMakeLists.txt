@@ -13,6 +13,14 @@ set(CMAKE_CXX_FLAGS_RELEASE        " ${CMAKE_CXX_FLAGS_INIT} -O1 -DNDEBUG -s")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO " ${CMAKE_CXX_FLAGS_INIT} -O2 -g -DDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# - glm
+FetchContent_Declare(
+	glm
+	GIT_REPOSITORY	https://github.com/g-truc/glm.git
+	GIT_TAG 	bf71a834948186f4097caa076cd2663c69a10e1e #refs/tags/1.0.1
+)
+FetchContent_MakeAvailable(glm)
+
 # - VulkanMemoryAllocator
 FetchContent_Declare(
   VulkanMemoryAllocator
@@ -164,4 +172,4 @@ target_compile_definitions(prosper PUBLIC
 
 target_precompile_headers(prosper PUBLIC <optional> <vector> <string> <unordered_map> <print> <memory> "src/rendering/vulkan_pch.h")
 target_link_libraries(imgui PUBLIC SDL3::SDL3 Vulkan::Vulkan)
-target_link_libraries(prosper PUBLIC yaml-cpp::yaml-cpp fastgltf::fastgltf imgui ktx Jolt SDL3::SDL3 Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator stb)
+target_link_libraries(prosper PUBLIC glm yaml-cpp::yaml-cpp fastgltf::fastgltf imgui ktx Jolt SDL3::SDL3 Vulkan::Vulkan GPUOpen::VulkanMemoryAllocator stb)
