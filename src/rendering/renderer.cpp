@@ -62,7 +62,6 @@ bool Renderer::create_physical_device() {
     return true;
 }
 
-
 bool Renderer::create_device() {
     std::vector<QueueFamilyProperties> queue_family = physical_device.getQueueFamilyProperties();
     graphics_queue_index = 0;

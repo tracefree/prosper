@@ -2,18 +2,16 @@ cmake_minimum_required(VERSION 3.31)
 project(prosper VERSION 0.2 LANGUAGES CXX C)
 
 # --- Dependencies ---
-#set(CMAKE_CXX_FLAGS "-O2 -flto -fno-fat-lto-objects")
 find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
 find_package(Vulkan REQUIRED)
 include(FetchContent)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_CXX_FLAGS                " ${CMAKE_CXX_FLAGS_INIT} -std=c++17 -fPIC")
-set(CMAKE_CXX_FLAGS_DEBUG          " ${CMAKE_CXX_FLAGS_INIT} -g -DDEBUG -D_GLIBCXX_DEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG          " ${CMAKE_CXX_FLAGS_INIT} -g -DDEBUG")
 set(CMAKE_CXX_FLAGS_MINSIZEREL     " ${CMAKE_CXX_FLAGS_INIT} -Os -DNDEBUG -s")
-set(CMAKE_CXX_FLAGS_RELEASE        " ${CMAKE_CXX_FLAGS_INIT} -O1 -DNDEBUG -flto -fno-fat-lto-objects -s")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO " ${CMAKE_CXX_FLAGS_INIT} -O2 -g -DDEBUG -D_GLIBCXX_DEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE        " ${CMAKE_CXX_FLAGS_INIT} -O1 -DNDEBUG -s")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO " ${CMAKE_CXX_FLAGS_INIT} -O2 -g -DDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-#set(CMAKE_BUILD_TYPE Debug)
 
 # - VulkanMemoryAllocator
 FetchContent_Declare(
@@ -95,7 +93,7 @@ FetchContent_MakeAvailable(KTX-Software)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-set(CMAKE_CXX_FLAGS                " ${CMAKE_CXX_FLAGS_INIT} -std=c++23 -fPIC")
+set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS_INIT} -std=c++23 -fPIC")
 
 add_library(prosper SHARED
     src/prosper.cpp
@@ -160,7 +158,7 @@ target_compile_definitions(prosper PUBLIC
   VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
   VK_USE_PLATFORM_WAYLAND_KHR
   GLM_FORCE_DEPTH_ZERO_TO_ONE
-  KHRONOS_STATIC # Needed to statically link KTX-Software
+  KHRONOS_STATIC
   YAML_CPP_STATIC_DEFINE
 )
 
