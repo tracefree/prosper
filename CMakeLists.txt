@@ -4,6 +4,7 @@ project(prosper VERSION 0.2 LANGUAGES CXX C)
 # --- Dependencies ---
 find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
 find_package(Vulkan REQUIRED)
+find_package(VulkanUtilityLibraries REQUIRED)
 include(FetchContent)
 set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_CXX_FLAGS                " ${CMAKE_CXX_FLAGS_INIT} -std=c++17 -fPIC")
