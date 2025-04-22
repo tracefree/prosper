@@ -42,7 +42,7 @@ Here's a short demonstration of the custom skeletal animation system:
 
 [animation.webm](https://github.com/user-attachments/assets/63fabd7d-53f6-4e16-88f1-a4f0dca6ebe6)
 
-## Installation instructions
+## Building
 ### Linux (and probably Mac and BSD)
 You'll need to have installed the Vulkan SDK, SDL3, and glm libraries on your system. To build with CMake, run these commands in the terminal inside the project's directoy:
 
@@ -51,15 +51,17 @@ cmake . -B build -G Ninja
 cmake --build build
 ```
 
-An example application using the engine library is provided in the `sample` directory. Build it by executing the same commands as above again within that directory, the executable `prosper_sample` will then be built in it. The sample project is currently set to automatically download the Sponza scene from the [glTF-Sample-Assets](https://github.com/KhronosGroup/glTF-Sample-Assets) repository, please refer to that page for license information for the assets. The camera can be controlled by looking around with the mouse and moving with the WASD keys, as well as E and Q for going up and down. The sample scene currently does not showcase the full capabilities of the engine - I will update it with an animated character and skybox once I decide on a better way to distribute assets.
-
 Regarding the shaders, they are compiled to bytecode and included with `shaders/bin/` and their source code is in `shaders/src/`. If you want to modify it you'll have to compile it with [`slangc`](https://github.com/shader-slang/slang). The `shaders` directory contains a bash script with the compile commands I used, you will need to adjust path to the slangc binary to point to where it is installed on your system.
 
 ### Windows
 idk, you're on your own ¯\_(ツ)_/¯
 
+## Using the engine
+Prosper lacks documentation, is in a highly experimental state, and I currently don't plan on providing support, so I don't recommend anyone to actually use it (yet). However, I made an example project that technically qualifies as a "game": [prosper_sample](https://github.com/tracefree/prosper_sample). It showcases most of the features of prosper and could be used as a template to start building other projects.
+
 ## Dependencies
 Currently I use the following third party libraries, downloaded and built automatically via CMake:
+- [GLM](https://github.com/g-truc/glm)
 - [Dear ImGui](https://github.com/ocornut/imgui)
 - [fastgltf](https://github.com/spnda/fastgltf)
 - [stb_image.h](https://github.com/nothings/stb)
