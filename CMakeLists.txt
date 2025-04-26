@@ -6,7 +6,6 @@ find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
 find_package(Vulkan REQUIRED)
 find_package(VulkanUtilityLibraries REQUIRED)
 include(FetchContent)
-set(BUILD_SHARED_LIBS OFF)
 set(CMAKE_CXX_FLAGS                " ${CMAKE_CXX_FLAGS_INIT} -std=c++17 -fPIC")
 set(CMAKE_CXX_FLAGS_DEBUG          " ${CMAKE_CXX_FLAGS_INIT} -g -DDEBUG")
 set(CMAKE_CXX_FLAGS_MINSIZEREL     " ${CMAKE_CXX_FLAGS_INIT} -Os -DNDEBUG -s")
@@ -31,6 +30,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(VulkanMemoryAllocator)
 
 # - yaml-cpp
+set(YAML_CPP_BUILD_TOOLS OFF)
 FetchContent_Declare(
   yaml-cpp
   GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
@@ -86,11 +86,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JoltPhysics)
 
 # - KTX-Software
-set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS_INIT} -fPIC")
 set(KTX_FEATURE_DOC OFF)
 set(KTX_FEATURE_GL_UPLOAD OFF)
+set(KTX_FEATURE_TESTS OFF)
 set(KTX_FEATURE_TOOLS OFF)
-set(KTX_FEATURE_STATIC_LIBRARY ON CACHE BOOL "Build KTX as a static library" FORCE)
+set(KTX_FEATURE_TOOLS_CTS OFF)
 FetchContent_Declare(
   KTX-Software
   GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
@@ -167,8 +167,6 @@ target_compile_definitions(prosper PUBLIC
   VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1
   VK_USE_PLATFORM_WAYLAND_KHR
   GLM_FORCE_DEPTH_ZERO_TO_ONE
-  KHRONOS_STATIC
-  YAML_CPP_STATIC_DEFINE
 )
 
 target_precompile_headers(prosper PUBLIC <optional> <vector> <string> <unordered_map> <print> <memory> "src/rendering/vulkan_pch.h")
