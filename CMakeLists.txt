@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.31)
 project(prosper VERSION 0.2 LANGUAGES CXX C)
 
+# --- Options ---
+option(PROSPER_PREFER_SYSTEM_LIBRARIES "Prefer system libraries for dependencies." ON)
+
 # --- Dependencies ---
 find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
 find_package(Vulkan REQUIRED)
@@ -12,33 +15,78 @@ set(CMAKE_CXX_FLAGS_MINSIZEREL     " ${CMAKE_CXX_FLAGS_INIT} -Os -DNDEBUG -s")
 set(CMAKE_CXX_FLAGS_RELEASE        " ${CMAKE_CXX_FLAGS_INIT} -O1 -DNDEBUG -s")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO " ${CMAKE_CXX_FLAGS_INIT} -O2 -g -DDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+message(STATUS "Prosper: Checking dependencies.")
 
 # - glm
-FetchContent_Declare(
-	glm
-	GIT_REPOSITORY	https://github.com/g-truc/glm.git
-	GIT_TAG 	bf71a834948186f4097caa076cd2663c69a10e1e #refs/tags/1.0.1
-)
-FetchContent_MakeAvailable(glm)
+function(fetch_glm)
+  message(STATUS "Prosper: 'glm': Fetching content.")
+  FetchContent_Declare(
+    glm
+    GIT_REPOSITORY	https://github.com/g-truc/glm.git
+    GIT_TAG 	bf71a834948186f4097caa076cd2663c69a10e1e #refs/tags/1.0.1
+  )
+  FetchContent_MakeAvailable(glm)
+endfunction()
+
+if(PROSPER_PREFER_SYSTEM_LIBRARIES)
+  find_package(glm QUIET)
+  if(${glm_FOUND})
+    message(STATUS "Prosper: 'glm': Using system library.")
+  else()
+    fetch_glm()
+  endif()
+else()
+  fetch_glm()
+endif(PROSPER_PREFER_SYSTEM_LIBRARIES)
 
 # - VulkanMemoryAllocator
-FetchContent_Declare(
-  VulkanMemoryAllocator
-  GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
-  GIT_TAG v3.1.0
-)
-FetchContent_MakeAvailable(VulkanMemoryAllocator)
+function(fetch_vma)
+  message(STATUS "Prosper: 'VulkanMemoryAllocator': Fetching content.")
+  FetchContent_Declare(
+    VulkanMemoryAllocator
+    GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+    GIT_TAG v3.1.0
+  )
+  FetchContent_MakeAvailable(VulkanMemoryAllocator)
+endfunction()
+
+if(PROSPER_PREFER_SYSTEM_LIBRARIES)
+  find_package(VulkanMemoryAllocator QUIET)
+  if(${VulkanMemoryAllocator_FOUND})
+    message(STATUS "Prosper: 'VulkanMemoryAllocator': Using system library.")
+  else()
+    fetch_vma()
+  endif()
+else()
+  fetch_vma()
+endif()
 
 # - yaml-cpp
-set(YAML_CPP_BUILD_TOOLS OFF)
-FetchContent_Declare(
-  yaml-cpp
-  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-  GIT_TAG yaml-cpp-0.7.0
-)
-FetchContent_MakeAvailable(yaml-cpp)
+function(fetch_yaml)
+  message(STATUS "Prosper: 'yaml-cpp': Fetching content.")
+  set(YAML_CPP_BUILD_TOOLS OFF)
+  FetchContent_Declare(
+    yaml-cpp
+    GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+    GIT_TAG yaml-cpp-0.7.0
+  )
+  FetchContent_MakeAvailable(yaml-cpp)
+endfunction()
+
+if(PROSPER_PREFER_SYSTEM_LIBRARIES)
+  find_package(yaml-cpp QUIET)
+  if(${yaml-cpp_FOUND})
+    message(STATUS "Prosper: 'yaml-cpp': Using system library.")
+  else(${yaml-cpp_FOUND})
+    fetch_yaml()
+  endif(${yaml-cpp_FOUND})
+else()
+  fetch_yaml()
+endif()
 
 # - fastgltf
+message(STATUS "Prosper: 'fastgltf': Fetching content.")
 FetchContent_Declare(
   fastgltf
   GIT_REPOSITORY https://github.com/spnda/fastgltf.git
@@ -47,6 +95,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(fastgltf)
 
 # - Dear ImGui
+message(STATUS "Prosper: 'Dear ImGui': Fetching content.")
 FetchContent_Declare(
   imgui
   GIT_REPOSITORY https://github.com/ocornut/imgui.git
@@ -67,6 +116,7 @@ target_include_directories(imgui PUBLIC
 )
 
 # - STB
+message(STATUS "Prosper: 'stb': Fetching content.")
 FetchContent_Declare(
   stb
   GIT_REPOSITORY https://github.com/nothings/stb.git
@@ -77,6 +127,7 @@ add_library(stb INTERFACE)
 target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
 
 # Jolt Physics
+message(STATUS "Prosper: 'JoltPhysics': Fetching content.")
 FetchContent_Declare(
   JoltPhysics
   GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
@@ -86,17 +137,31 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JoltPhysics)
 
 # - KTX-Software
-set(KTX_FEATURE_DOC OFF)
-set(KTX_FEATURE_GL_UPLOAD OFF)
-set(KTX_FEATURE_TESTS OFF)
-set(KTX_FEATURE_TOOLS OFF)
-set(KTX_FEATURE_TOOLS_CTS OFF)
-FetchContent_Declare(
-  KTX-Software
-  GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
-  GIT_TAG main
-)
-FetchContent_MakeAvailable(KTX-Software)
+function(fetch_ktx)
+  message(STATUS "Prosper: 'KTX-Software': Fetching content.")
+  set(KTX_FEATURE_DOC OFF)
+  set(KTX_FEATURE_GL_UPLOAD OFF)
+  set(KTX_FEATURE_TESTS OFF)
+  set(KTX_FEATURE_TOOLS OFF)
+  set(KTX_FEATURE_TOOLS_CTS OFF)
+  FetchContent_Declare(
+    KTX-Software
+    GIT_REPOSITORY https://github.com/KhronosGroup/KTX-Software.git
+    GIT_TAG main
+  )
+  FetchContent_MakeAvailable(KTX-Software)
+endfunction()
+
+if(PROSPER_PREFER_SYSTEM_LIBRARIES)
+  find_package(KTX-Software QUIET)
+  if(${KTX-Software_FOUND})
+    message(STATUS "Prosper: 'KTX-Software': Using system library.")
+  else(${KTX-Software_FOUND})
+    fetch_ktx()
+  endif(${KTX-Software_FOUND})
+else()
+  fetch_ktx()
+endif()
 
 # --- Main project ---
 set(CMAKE_CXX_STANDARD 23)
