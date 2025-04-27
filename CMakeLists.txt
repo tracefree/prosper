@@ -5,9 +5,6 @@ project(prosper VERSION 0.2 LANGUAGES CXX C)
 option(PROSPER_PREFER_SYSTEM_LIBRARIES "Prefer system libraries for dependencies." ON)
 
 # --- Dependencies ---
-find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
-find_package(Vulkan REQUIRED)
-find_package(VulkanUtilityLibraries REQUIRED)
 include(FetchContent)
 set(CMAKE_CXX_FLAGS                " ${CMAKE_CXX_FLAGS_INIT} -std=c++17 -fPIC")
 set(CMAKE_CXX_FLAGS_DEBUG          " ${CMAKE_CXX_FLAGS_INIT} -g -DDEBUG")
@@ -17,6 +14,32 @@ set(CMAKE_CXX_FLAGS_RELWITHDEBINFO " ${CMAKE_CXX_FLAGS_INIT} -O2 -g -DDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 message(STATUS "Prosper: Checking dependencies.")
+
+find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
+find_package(Vulkan REQUIRED)
+
+# - VulkanUtilityLibraries
+function(fetch_vulkan)
+  message(STATUS "Prosper: 'VulkanUtilityLibraries': Fetching content.")
+  FetchContent_Declare(
+    VulkanUtilityLibraries
+    GIT_REPOSITORY "https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git"
+    GIT_TAG "v${Vulkan_VERSION}"
+  )
+  FetchContent_MakeAvailable(VulkanUtilityLibraries)
+endfunction()
+
+if(PROSPER_PREFER_SYSTEM_LIBRARIES)
+  find_package(VulkanUtilityLibraries QUIET)
+  if(${Vulkan_FOUND} AND ${VulkanUtilityLibraries_FOUND})
+    message(STATUS "Prosper: 'vulkan-headers': Using system library.")
+    message(STATUS "Prosper: 'VulkanUtilityLibraries': Using system library.")
+  else()
+    fetch_vulkan()
+  endif()
+else()
+  fetch_vulkan()
+endif()
 
 # - glm
 function(fetch_glm)
