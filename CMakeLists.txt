@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.31)
+cmake_minimum_required(VERSION 3.21)
 project(prosper VERSION 0.2 LANGUAGES CXX C)
 
 # --- Options ---
@@ -15,30 +15,30 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 message(STATUS "Prosper: Checking dependencies.")
 
-find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
+# - Vulkan
 find_package(Vulkan REQUIRED)
+find_package(VulkanUtilityLibraries REQUIRED)
 
-# - VulkanUtilityLibraries
-function(fetch_vulkan)
-  message(STATUS "Prosper: 'VulkanUtilityLibraries': Fetching content.")
+# - SDL
+function(fetch_sdl)
+  message(STATUS "Prosper: 'SDL3': Fetching content.")
   FetchContent_Declare(
-    VulkanUtilityLibraries
-    GIT_REPOSITORY "https://github.com/KhronosGroup/Vulkan-Utility-Libraries.git"
-    GIT_TAG "v${Vulkan_VERSION}"
+    SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL
+    GIT_TAG main
   )
-  FetchContent_MakeAvailable(VulkanUtilityLibraries)
+  FetchContent_MakeAvailable(SDL3)
 endfunction()
 
 if(PROSPER_PREFER_SYSTEM_LIBRARIES)
-  find_package(VulkanUtilityLibraries QUIET)
-  if(${Vulkan_FOUND} AND ${VulkanUtilityLibraries_FOUND})
-    message(STATUS "Prosper: 'vulkan-headers': Using system library.")
-    message(STATUS "Prosper: 'VulkanUtilityLibraries': Using system library.")
+  find_package(SDL3 CONFIG COMPONENTS SDL3-shared)
+  if(${SDL3_FOUND})
+    message(STATUS "Prosper: 'SDL3': Using system library.")
   else()
-    fetch_vulkan()
+    fetch_sdl()
   endif()
 else()
-  fetch_vulkan()
+  fetch_sdl()
 endif()
 
 # - glm
@@ -101,9 +101,9 @@ if(PROSPER_PREFER_SYSTEM_LIBRARIES)
   find_package(yaml-cpp QUIET)
   if(${yaml-cpp_FOUND})
     message(STATUS "Prosper: 'yaml-cpp': Using system library.")
-  else(${yaml-cpp_FOUND})
+  else()
     fetch_yaml()
-  endif(${yaml-cpp_FOUND})
+  endif()
 else()
   fetch_yaml()
 endif()
@@ -179,9 +179,9 @@ if(PROSPER_PREFER_SYSTEM_LIBRARIES)
   find_package(KTX-Software QUIET)
   if(${KTX-Software_FOUND})
     message(STATUS "Prosper: 'KTX-Software': Using system library.")
-  else(${KTX-Software_FOUND})
+  else()
     fetch_ktx()
-  endif(${KTX-Software_FOUND})
+  endif()
 else()
   fetch_ktx()
 endif()
