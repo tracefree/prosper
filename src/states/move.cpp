@@ -20,7 +20,8 @@ void State::Move::update(double delta) {
     }
 
     if(Input::is_pressed(SDL_SCANCODE_LALT)) {
-        state_machine->transition_to<Dodge>();
+        // TODO: Find out why dodge rolling segfaults in some builds.
+        // state_machine->transition_to<Dodge>();
         return;
     }
 
