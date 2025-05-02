@@ -140,7 +140,7 @@ namespace prosper {
             ImGui::Text("Look around: Mouse");
             ImGui::Text("Jump: Space");
             ImGui::Text("Sprint: Hold left Shift");
-            ImGui::Text("Roll: Left Alt");
+      //    ImGui::Text("Roll: Left Alt");
             ImGui::Text("Toggle cursor: Escape");
             ImGui::Text("Exit: Alt+F4");
         }
