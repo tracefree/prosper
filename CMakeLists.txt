@@ -6,11 +6,11 @@ option(PROSPER_PREFER_SYSTEM_LIBRARIES "Prefer system libraries for dependencies
 
 # --- Dependencies ---
 include(FetchContent)
-set(CMAKE_CXX_FLAGS                " ${CMAKE_CXX_FLAGS_INIT} -static-libgcc -std=c++17 -fPIC")
-set(CMAKE_CXX_FLAGS_DEBUG          " ${CMAKE_CXX_FLAGS_INIT} -static-libgcc -g -DDEBUG")
-set(CMAKE_CXX_FLAGS_MINSIZEREL     " ${CMAKE_CXX_FLAGS_INIT} -static-libgcc -Os -DNDEBUG -s")
-set(CMAKE_CXX_FLAGS_RELEASE        " ${CMAKE_CXX_FLAGS_INIT} -static-libgcc -O1 -DNDEBUG -s")
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO " ${CMAKE_CXX_FLAGS_INIT} -static-libgcc -O2 -g -DDEBUG")
+set(CMAKE_CXX_FLAGS                " ${CMAKE_CXX_FLAGS_INIT} -std=c++17 -fPIC")
+set(CMAKE_CXX_FLAGS_DEBUG          " ${CMAKE_CXX_FLAGS_INIT} -g -DDEBUG")
+set(CMAKE_CXX_FLAGS_MINSIZEREL     " ${CMAKE_CXX_FLAGS_INIT} -Os -DNDEBUG -s")
+set(CMAKE_CXX_FLAGS_RELEASE        " ${CMAKE_CXX_FLAGS_INIT} -O1 -DNDEBUG -s")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO " ${CMAKE_CXX_FLAGS_INIT} -O2 -g -DDEBUG")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 message(STATUS "Prosper: Checking dependencies.")
@@ -190,8 +190,8 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-set(CMAKE_CXX_FLAGS         " ${CMAKE_CXX_FLAGS_INIT} -static-libgcc -std=c++23 -fPIC")
-set(CMAKE_CXX_FLAGS_RELEASE " ${CMAKE_CXX_FLAGS_INIT} -static-libgcc -std=c++23 -fPIC -O1 -DNDEBUG -s")
+set(CMAKE_CXX_FLAGS         " ${CMAKE_CXX_FLAGS_INIT} -std=c++23 -fPIC")
+set(CMAKE_CXX_FLAGS_RELEASE " ${CMAKE_CXX_FLAGS_INIT} -std=c++23 -fPIC -O1 -DNDEBUG -s")
 
 add_library(prosper SHARED
     src/prosper.cpp

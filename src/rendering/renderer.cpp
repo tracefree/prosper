@@ -1373,7 +1373,7 @@ void Renderer::draw_skybox(CommandBuffer p_cmd, uint p_swapchain_image_index) {
 void Renderer::draw_geometry(CommandBuffer p_cmd) {
     gStats.drawcall_count = 0;
     gStats.triangle_count = 0;
-    auto start_time = std::chrono::system_clock::now();
+    auto start_time = std::chrono::steady_clock::now();
 
     std::vector<uint32_t> opaque_draws;
     opaque_draws.reserve(draw_context.opaque_surfaces.size());
@@ -1493,7 +1493,7 @@ void Renderer::draw_geometry(CommandBuffer p_cmd) {
 
     p_cmd.endRendering();
 
-    auto end_time = std::chrono::system_clock::now();
+    auto end_time = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     gStats.mesh_draw_time = elapsed.count() / 1000.0f;
 }
@@ -1656,7 +1656,7 @@ void Renderer::draw() {
 }
 
 void Renderer::update_scene() {
-    auto start_time = std::chrono::system_clock::now();
+    auto start_time = std::chrono::steady_clock::now();
 
     draw_context.opaque_surfaces.clear();
     draw_context.transparent_surfaces.clear();
@@ -1671,7 +1671,7 @@ void Renderer::update_scene() {
     scene_data.view_projection = scene_data.projection * scene_data.view;
     scene_data.inverse_projection = glm::inverse(scene_data.projection);
 
-    scene_data.ambient_color = Vec4(1.0f, 0.6f, 0.6f, 0.3f);
+    scene_data.ambient_color = Vec4(1.0f, 0.6f, 0.6f, 0.1f);
     scene_data.sunlight_color = Vec4(0.5f, 0.5f, 0.5f, 0.5f);
     scene_data.sunlight_direction = Vec4(glm::normalize(Vec3(0.5, 0.5, 0.5)), 1.0f);
 
@@ -1679,7 +1679,7 @@ void Renderer::update_scene() {
         scene_data.point_lights[index] = scene.point_lights[index];
     }
     
-    auto end_time = std::chrono::system_clock::now();
+    auto end_time = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     gStats.scene_update_time = elapsed.count() / 1000.0f;
 }

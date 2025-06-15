@@ -44,7 +44,7 @@ Renderer gRenderer;
 PerformanceStats gStats {};
 SceneGraph scene;
 vk::SampleCountFlagBits gSamples { vk::SampleCountFlagBits::e8 };
-auto boot_time = std::chrono::system_clock::now();
+auto boot_time = std::chrono::steady_clock::now();
 
 Ref<Node> player;
 std::thread physics_worker;
@@ -93,7 +93,7 @@ namespace prosper {
             Physics::physics_system.OptimizeBroadPhase();
         }
         
-        auto start_time = std::chrono::system_clock::now();
+        auto start_time = std::chrono::steady_clock::now();
 
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
@@ -164,7 +164,7 @@ namespace prosper {
 
         gRenderer.draw();
 
-        auto end_time = std::chrono::system_clock::now();
+        auto end_time = std::chrono::steady_clock::now();
 
         auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
         gStats.frametime = elapsed.count() / 1000.0f;

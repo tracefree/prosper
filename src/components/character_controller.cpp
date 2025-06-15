@@ -34,7 +34,7 @@ void CharacterController::update(double delta) {
     node->set_position(Vec3(new_position.GetX(), new_position.GetY(), new_position.GetZ()));
 
     JPH::RVec3 actual_velocity = new_position - current_position;
-    if (actual_velocity.GetY() <= 0.01 && target_velocity.y > 0.0) {
+    if (actual_velocity.GetY() <= 0.0001 && target_velocity.y > 0.0) {
         target_velocity.y = 0.0;
     }
 }
