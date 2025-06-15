@@ -20,8 +20,8 @@
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_vulkan.h>
 
-extern const uint WINDOW_WIDTH = 2560;
-extern const uint WINDOW_HEIGHT = 1440;
+extern const uint WINDOW_WIDTH;
+extern const uint WINDOW_HEIGHT;
 extern PerformanceStats gStats;
 extern vk::SampleCountFlagBits gSamples;
 extern SceneGraph scene;
@@ -35,7 +35,7 @@ bool Renderer::create_vulkan_instance(uint32_t p_extension_count, const char* co
     
     std::vector<const char*> enabled_layers;
 #ifdef DEBUG
-    enabled_layers.emplace_back("VK_LAYER_KHRONOS_validation");
+    //enabled_layers.emplace_back("VK_LAYER_KHRONOS_validation");
 #endif
 
     InstanceCreateInfo create_info {
@@ -149,8 +149,10 @@ bool Renderer::create_allocator() {
 }
 
 bool Renderer::create_swapchain() {
-    viewport_size.width = WINDOW_WIDTH;
-    viewport_size.height = WINDOW_HEIGHT;
+    int w, h;
+    SDL_GetWindowSize(window, &w, &h);
+    viewport_size.width = w;
+    viewport_size.height = h;
 
     SwapchainCreateInfoKHR create_info {
         .surface = surface,
@@ -590,7 +592,9 @@ bool Renderer::create_sync_objects() {
 
 bool Renderer::create_descriptors() {
     std::vector<DescriptorAllocatorGrowable::PoolSizeRatio> sizes = {
-        { DescriptorType::eStorageImage, 1}
+        { DescriptorType::eStorageImage, 1},
+        { DescriptorType::eUniformBuffer, 1},
+        { DescriptorType::eCombinedImageSampler, 1},
     };
 
     global_descriptor_allocator.init_pool(device, 10, sizes);
@@ -633,6 +637,7 @@ bool Renderer::create_descriptors() {
             {DescriptorType::eStorageImage, 3},
             {DescriptorType::eStorageBuffer, 3},
             {DescriptorType::eUniformBuffer, 3},
+            {DescriptorType::eSampledImage, 3},
             {DescriptorType::eCombinedImageSampler, 4},
         };
 

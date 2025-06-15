@@ -36,8 +36,8 @@
 
 #include <thread>
 
-const uint WINDOW_WIDTH = 2560;
-const uint WINDOW_HEIGHT = 1440;
+extern const uint WINDOW_WIDTH = 2560;
+extern const uint WINDOW_HEIGHT = 1440;
 
 SDL_Window* gWindow{ nullptr };
 Renderer gRenderer;
@@ -214,7 +214,7 @@ namespace prosper {
         SDL_SetNumberProperty(window_props,  SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, WINDOW_WIDTH);
         SDL_SetNumberProperty(window_props,  SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, WINDOW_HEIGHT);
         SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
-        SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, true);
+        SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, false);
         SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
         SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
         SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN, true);
