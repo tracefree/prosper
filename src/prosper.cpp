@@ -36,11 +36,14 @@
 
 #include <thread>
 
+const uint WINDOW_WIDTH = 2560;
+const uint WINDOW_HEIGHT = 1440;
+
 SDL_Window* gWindow{ nullptr };
 Renderer gRenderer;
 PerformanceStats gStats {};
 SceneGraph scene;
-vk::SampleCountFlagBits gSamples { vk::SampleCountFlagBits::e4 };
+vk::SampleCountFlagBits gSamples { vk::SampleCountFlagBits::e8 };
 auto boot_time = std::chrono::system_clock::now();
 
 Ref<Node> player;
@@ -208,10 +211,10 @@ namespace prosper {
 
         // Create window
         SDL_PropertiesID window_props {SDL_CreateProperties()};
-        SDL_SetNumberProperty(window_props,  SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, 1920);
-        SDL_SetNumberProperty(window_props,  SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, 1080);
-        SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, false);
-        SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, false);
+        SDL_SetNumberProperty(window_props,  SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, WINDOW_WIDTH);
+        SDL_SetNumberProperty(window_props,  SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, WINDOW_HEIGHT);
+        SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_FULLSCREEN_BOOLEAN, true);
+        SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, true);
         SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_RESIZABLE_BOOLEAN, true);
         SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_VULKAN_BOOLEAN, true);
         SDL_SetBooleanProperty(window_props, SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN, true);
@@ -237,7 +240,7 @@ namespace prosper {
             extensions.emplace_back(sdl_extension_names[i]);
         }
 
-        gRenderer.initialize(extensions.size(), extensions.data(), gWindow, 1920, 1080);
+        gRenderer.initialize(extensions.size(), extensions.data(), gWindow, WINDOW_WIDTH, WINDOW_HEIGHT);
 
         // Initialize systems
         Input::initialize();

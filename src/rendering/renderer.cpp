@@ -20,6 +20,8 @@
 #include <imgui_impl_sdl3.h>
 #include <imgui_impl_vulkan.h>
 
+extern const uint WINDOW_WIDTH = 2560;
+extern const uint WINDOW_HEIGHT = 1440;
 extern PerformanceStats gStats;
 extern vk::SampleCountFlagBits gSamples;
 extern SceneGraph scene;
@@ -147,10 +149,8 @@ bool Renderer::create_allocator() {
 }
 
 bool Renderer::create_swapchain() {
-    int w, h;
-    SDL_GetWindowSize(window, &w, &h);
-    viewport_size.width = w;
-    viewport_size.height = h;
+    viewport_size.width = WINDOW_WIDTH;
+    viewport_size.height = WINDOW_HEIGHT;
 
     SwapchainCreateInfoKHR create_info {
         .surface = surface,
@@ -159,7 +159,7 @@ bool Renderer::create_swapchain() {
         .imageExtent = viewport_size,
         .imageArrayLayers = 1,
         .imageUsage = ImageUsageFlagBits::eColorAttachment | ImageUsageFlagBits::eTransferDst,
-        .presentMode = PresentModeKHR::eImmediate,
+        .presentMode = PresentModeKHR::eFifo,
         .clipped = True
     };
 
@@ -1326,7 +1326,7 @@ void Renderer::draw_skybox(CommandBuffer p_cmd, uint p_swapchain_image_index) {
         .storeOp     = AttachmentStoreOp::eNone,
     };
     RenderingInfo render_info {
-        .renderArea = Rect2D { {0, 0}, {1920, 1080} }, // TODO: Get window size
+        .renderArea = Rect2D { {0, 0}, {WINDOW_WIDTH, WINDOW_HEIGHT} }, // TODO: Get window size
         .layerCount = 1,
         .colorAttachmentCount = 1,
         .pColorAttachments = &color_attachment,
